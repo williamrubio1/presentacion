@@ -1,42 +1,48 @@
 # presentacion.soluctiasas.com
 
-Sitio de demostración para la charla sobre automatización de correo y procesos
-empresariales en la Universidad de los Llanos (Villavicencio, Meta).
+Sitio de la charla sobre automatización de correo y procesos empresariales en la
+Universidad de los Llanos (Villavicencio, Meta), y panel operativo real del
+buzón de Soluctia SAS.
 
-## Stack
+## Dos partes
 
-- React 19 + Vite
-- Tailwind CSS v4 (`@tailwindcss/vite`)
-- react-router-dom (rutas `/` y `/dashboard`)
-- recharts (gráfica de actividad)
-- lucide-react (íconos)
+| Carpeta | Qué es | Dónde vive |
+|---|---|---|
+| raíz | Frontend React + Vite (landing + panel) | Hostinger, estático (`public_html`) |
+| `server/` | Backend Node + MySQL que conecta el buzón M365 | Hostinger, app Node (subdominio) |
 
-## Scripts
+El panel funciona en **modo demostración** con datos simulados si no hay
+`VITE_API_URL`. Con backend, pide login y muestra el buzón real.
+
+## Frontend
 
 ```bash
-npm run dev       # servidor de desarrollo
+npm install
+npm run dev       # desarrollo
 npm run build     # genera dist/
-npm run preview   # sirve dist/ localmente
-npm run lint      # eslint
+npm run lint
 ```
 
-## Estructura
+- `src/pages/Landing.jsx` — página de empresa
+- `src/pages/Dashboard.jsx` — Centro de Mando
+- `src/lib/dashboardData.js` — datos simulados + contrato
+- `src/lib/api.js` — cliente del backend
+- `src/hooks/useDashboardData.js` — carga, polling y acciones del panel
+- `src/components/{landing,dashboard,layout}/*`
 
-- `src/pages/Landing.jsx` — página de empresa (Soluctia SAS)
-- `src/pages/Dashboard.jsx` — "Centro de Mando", demo en vivo con datos simulados
-- `src/data/mockData.js` — toda la data del dashboard (estática)
-- `src/components/landing/*` — secciones de la landing
-- `src/components/dashboard/*` — widgets del dashboard
-- `src/components/layout/*` — Navbar, Footer, DashboardHeader
-- `src/hooks/*` — `useReveal` (animación al hacer scroll), `useCountUp` (conteo)
+### Despliegue (estático)
 
-## Despliegue en Hostinger (sitio estático)
+1. Crea `.env` con `VITE_API_URL=https://api.presentacion.soluctiasas.com`
+   (omítelo para dejar el panel en modo demostración).
+2. `npm run build`
+3. Sube `dist/` a `public_html/`. `dist/.htaccess` ya trae el fallback de SPA.
 
-1. `npm run build`
-2. Subir el contenido de `dist/` a `public_html/` del dominio
-   `presentacion.soluctiasas.com`.
-3. `dist/.htaccess` ya incluye el fallback de SPA para que `/dashboard`
-   funcione al recargar la página.
+## Backend
 
-Sin backend: el formulario de contacto y toda la data del dashboard son
-simulados. No se usa `localStorage` ni `sessionStorage`.
+Ver [`server/README.md`](server/README.md) — instalación, endpoints, despliegue
+en Hostinger (Node.js + MySQL), cron jobs y registro de app en Entra ID.
+
+## Integración con el correo
+
+Ver [`docs/integracion-correo.md`](docs/integracion-correo.md) — arquitectura,
+contrato de datos y fases (1 y 2 hechas; falta conectar Microsoft Graph).

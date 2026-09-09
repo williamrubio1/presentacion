@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, Loader2, TriangleAlert } from 'lucide-react'
+import { RefreshCw, Loader2, TriangleAlert, LogOut } from 'lucide-react'
 import DashboardHeader from '../components/layout/DashboardHeader.jsx'
 import MetricCards from '../components/dashboard/MetricCards.jsx'
 import ActivityChart from '../components/dashboard/ActivityChart.jsx'
@@ -7,25 +7,33 @@ import EmailTable from '../components/dashboard/EmailTable.jsx'
 import ClientTimeline from '../components/dashboard/ClientTimeline.jsx'
 import Alerts from '../components/dashboard/Alerts.jsx'
 import AISummary from '../components/dashboard/AISummary.jsx'
+import LoginGate from '../components/dashboard/LoginGate.jsx'
+import EmailDetail from '../components/dashboard/EmailDetail.jsx'
 import { useDashboardData } from '../hooks/useDashboardData.js'
 
 export default function Dashboard() {
-  const { data, loading, error, isLive, reload } = useDashboardData()
-  const [cliente, setCliente] = useState(null)
+  const { data, loading, error, needsAuth, isLive, reload, actions } = useDashboardData()
+  const [openId, setOpenId] = useState(null)
 
-  const onSelect = (remitente) =>
-    setCliente((prev) => (prev === remitente ? null : remitente))
+  if (needsAuth) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] text-slate-100">
+        <DashboardHeader mode="demo" />
+        <LoginGate onLogin={actions.login} />
+      </div>
+    )
+  }
+
+  const openEmail = data?.emails.find((e) => e.id === openId) || null
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-100">
       <DashboardHeader mode={isLive ? 'live' : 'demo'} />
 
       <main className="mx-auto max-w-7xl space-y-6 px-5 py-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-slate-500">
-            {isLive
-              ? 'Conectado al buzón — datos reales'
-              : 'Modo demostración — datos simulados'}
+            {isLive ? 'Conectado al buzón — datos reales' : 'Modo demostración — datos simulados'}
             {data?.updatedAt && (
               <>
                 {' · actualizado '}
@@ -36,15 +44,27 @@ export default function Dashboard() {
               </>
             )}
           </p>
-          <button
-            type="button"
-            onClick={reload}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            Actualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={reload}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              Actualizar
+            </button>
+            {isLive && (
+              <button
+                type="button"
+                onClick={actions.logout}
+                className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+              >
+                <LogOut size={13} />
+                Salir
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -74,13 +94,13 @@ export default function Dashboard() {
               <div className="lg:col-span-2">
                 <EmailTable
                   emails={data.emails}
-                  selected={cliente}
-                  onSelect={onSelect}
+                  selectedId={openId}
+                  onOpen={(mail) => setOpenId(mail.id)}
                 />
               </div>
               <ClientTimeline
-                cliente={cliente}
-                eventos={cliente ? data.timelines?.[cliente] : null}
+                cliente={openEmail?.remitente}
+                eventos={openEmail ? data.timelines?.[openEmail.remitente] : null}
               />
             </div>
 
@@ -88,6 +108,16 @@ export default function Dashboard() {
           </>
         ) : null}
       </main>
+
+      {openEmail && (
+        <EmailDetail
+          key={openEmail.id}
+          email={openEmail}
+          onClose={() => setOpenId(null)}
+          onReply={actions.reply}
+          onResolve={(id) => actions.update(id, { status: 'resuelto' })}
+        />
+      )}
     </div>
   )
 }

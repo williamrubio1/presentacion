@@ -1,12 +1,12 @@
 import { categoryStyles, statusStyles, fallbackBadge } from '../../lib/badges.js'
 
-export default function EmailTable({ emails = [], selected, onSelect }) {
+export default function EmailTable({ emails = [], selectedId, onOpen }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0b1120]">
       <div className="border-b border-white/10 px-5 py-4">
         <h3 className="text-sm font-semibold text-white">Correos recientes</h3>
         <p className="mt-0.5 text-xs text-slate-400">
-          Haz clic en un remitente para ver su historial
+          Haz clic en un correo para ver el resumen y responder
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -22,11 +22,11 @@ export default function EmailTable({ emails = [], selected, onSelect }) {
           </thead>
           <tbody>
             {emails.map((mail) => {
-              const isSel = selected === mail.remitente
+              const isSel = selectedId === mail.id
               return (
                 <tr
                   key={mail.id}
-                  onClick={() => onSelect(mail.remitente)}
+                  onClick={() => onOpen(mail)}
                   className={`cursor-pointer border-t border-white/5 transition hover:bg-white/5 ${
                     isSel ? 'bg-[#4361ee]/10' : ''
                   } ${mail.estado === 'Urgente' ? 'blink-urgent' : ''}`}

@@ -1,28 +1,18 @@
 // ---------------------------------------------------------------------------
-// Capa de datos del Centro de Mando.
+// Datos simulados del Centro de Mando (modo demostración, sin backend).
 //
-// El panel NO conoce de dónde vienen los datos. Llama a getDashboardData() y
-// recibe siempre la misma forma (el "contrato" de abajo).
-//
-//   - Sin VITE_API_URL  -> datos simulados (demo / desarrollo sin backend)
-//   - Con VITE_API_URL   -> GET {VITE_API_URL}/dashboard  (Fase 3 en adelante)
-//
-// Contrato que devuelve getDashboardData():
+// Contrato (idéntico al que devuelve el backend en GET /api/dashboard):
 //   {
 //     metrics:   [{ id, label, value, suffix, display?, icon, tone }]
 //     activity:  [{ dia, recibidos, respondidos }]
-//     emails:    [{ id, hora, remitente, empresa, asunto, categoria, estado,
-//                   resumen?, borrador? }]
+//     emails:    [{ id, hora, remitente, email, empresa, asunto, categoria,
+//                   estado, resumen?, borrador? }]
 //     timelines: { [remitente]: [{ fecha, evento }] }
 //     alerts:    [{ id, tone: 'red'|'amber'|'green', text }]
 //     aiSummary: { title, text }
 //     updatedAt: ISO string
 //   }
 // ---------------------------------------------------------------------------
-
-const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '')
-
-export const isLive = Boolean(API_URL)
 
 // --- Datos simulados -------------------------------------------------------
 
@@ -221,33 +211,51 @@ const aiSummary = {
   text: 'Esta semana se recibieron 234 correos. Se respondieron 208 (89%). 3 clientes no han recibido respuesta en más de 48 horas: Andrea Ruiz, Carlos Méndez y TechCo Proveedores. La categoría con más volumen fue Cotizaciones (34%). Se recomienda priorizar los reclamos pendientes antes del cierre del día.',
 }
 
-function mockDashboard() {
-  return {
-    metrics,
-    activity,
-    emails,
-    timelines,
-    alerts,
-    aiSummary,
-    updatedAt: new Date().toISOString(),
+const slug = (n) =>
+  n
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z]+/g, '.')
+    .replace(/^\.|\.$/g, '')
+
+// Copia mutable para que las acciones de la demo (responder, resolver) se vean.
+let state = null
+
+function reset() {
+  state = {
+    metrics: metrics.map((m) => ({ ...m })),
+    activity: activity.map((a) => ({ ...a })),
+    emails: emails.map((e) => ({ ...e, email: `${slug(e.remitente)}@ejemplo.co` })),
+    timelines: JSON.parse(JSON.stringify(timelines)),
+    alerts: alerts.map((a) => ({ ...a })),
+    aiSummary: { ...aiSummary },
   }
 }
 
-// --- API pública ---------------------------------------------------------
+// --- API pública (modo demostración) -----------------------------------
 
-export async function getDashboardData({ signal } = {}) {
-  if (!API_URL) {
-    // Pequeña espera para que el panel muestre su estado de carga real.
-    await new Promise((r) => setTimeout(r, 250))
-    return mockDashboard()
-  }
+export async function getMockDashboard() {
+  if (!state) reset()
+  await new Promise((r) => setTimeout(r, 200))
+  return { ...state, updatedAt: new Date().toISOString() }
+}
 
-  const res = await fetch(`${API_URL}/dashboard`, {
-    signal,
-    headers: { Accept: 'application/json' },
-  })
-  if (!res.ok) {
-    throw new Error(`El backend respondió ${res.status}`)
+export function mockReply(id) {
+  if (!state) reset()
+  const e = state.emails.find((x) => String(x.id) === String(id))
+  if (e) {
+    e.estado = 'Respondido'
+    const t = state.timelines[e.remitente]
+    if (t) t.push({ fecha: 'hoy', evento: `Respuesta enviada: ${e.asunto}` })
   }
-  return res.json()
+}
+
+export function mockUpdate(id, patch) {
+  if (!state) reset()
+  const e = state.emails.find((x) => String(x.id) === String(id))
+  if (!e) return
+  if (patch.status === 'resuelto') e.estado = 'Respondido'
+  if (patch.status === 'pendiente') e.estado = 'Pendiente'
+  if (patch.category) e.categoria = patch.category
 }
