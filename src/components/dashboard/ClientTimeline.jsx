@@ -1,8 +1,6 @@
 import { MousePointerClick } from 'lucide-react'
-import { clientTimelines } from '../../data/mockData.js'
 
-export default function ClientTimeline({ cliente }) {
-  const eventos = cliente ? clientTimelines[cliente] : null
+export default function ClientTimeline({ cliente, eventos }) {
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0b1120] p-5">

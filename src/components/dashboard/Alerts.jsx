@@ -1,5 +1,4 @@
 import { AlertCircle, Clock, CheckCircle2 } from 'lucide-react'
-import { alerts } from '../../data/mockData.js'
 
 const config = {
   red: {
@@ -22,13 +21,13 @@ const config = {
   },
 }
 
-export default function Alerts() {
+export default function Alerts({ alerts = [] }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0b1120] p-5">
       <h3 className="text-sm font-semibold text-white">Alertas activas</h3>
       <div className="mt-4 space-y-3">
         {alerts.map((a) => {
-          const c = config[a.tone]
+          const c = config[a.tone] ?? config.amber
           const Icon = c.icon
           return (
             <div

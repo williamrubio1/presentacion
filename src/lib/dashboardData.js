@@ -1,23 +1,34 @@
-// Datos simulados para la demo del Centro de Mando de Soluctia SAS.
-// Nada de esto consulta un backend real: son ejemplos realistas de una PYME colombiana.
+// ---------------------------------------------------------------------------
+// Capa de datos del Centro de Mando.
+//
+// El panel NO conoce de dónde vienen los datos. Llama a getDashboardData() y
+// recibe siempre la misma forma (el "contrato" de abajo).
+//
+//   - Sin VITE_API_URL  -> datos simulados (demo / desarrollo sin backend)
+//   - Con VITE_API_URL   -> GET {VITE_API_URL}/dashboard  (Fase 3 en adelante)
+//
+// Contrato que devuelve getDashboardData():
+//   {
+//     metrics:   [{ id, label, value, suffix, display?, icon, tone }]
+//     activity:  [{ dia, recibidos, respondidos }]
+//     emails:    [{ id, hora, remitente, empresa, asunto, categoria, estado,
+//                   resumen?, borrador? }]
+//     timelines: { [remitente]: [{ fecha, evento }] }
+//     alerts:    [{ id, tone: 'red'|'amber'|'green', text }]
+//     aiSummary: { title, text }
+//     updatedAt: ISO string
+//   }
+// ---------------------------------------------------------------------------
 
-export const metrics = [
-  {
-    id: 'correos-hoy',
-    label: 'Correos hoy',
-    value: 47,
-    suffix: '',
-    icon: 'Mail',
-    tone: 'blue',
-  },
-  {
-    id: 'sin-responder',
-    label: 'Sin responder',
-    value: 5,
-    suffix: '',
-    icon: 'AlertTriangle',
-    tone: 'pending',
-  },
+const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '')
+
+export const isLive = Boolean(API_URL)
+
+// --- Datos simulados -------------------------------------------------------
+
+const metrics = [
+  { id: 'correos-hoy', label: 'Correos hoy', value: 47, suffix: '', icon: 'Mail', tone: 'blue' },
+  { id: 'sin-responder', label: 'Sin responder', value: 5, suffix: '', icon: 'AlertTriangle', tone: 'pending' },
   {
     id: 'tiempo-respuesta',
     label: 'Tiempo promedio de respuesta',
@@ -27,17 +38,10 @@ export const metrics = [
     icon: 'Clock',
     tone: 'dark',
   },
-  {
-    id: 'tasa-respuesta',
-    label: 'Tasa de respuesta',
-    value: 89,
-    suffix: '%',
-    icon: 'CheckCircle2',
-    tone: 'positive',
-  },
+  { id: 'tasa-respuesta', label: 'Tasa de respuesta', value: 89, suffix: '%', icon: 'CheckCircle2', tone: 'positive' },
 ]
 
-export const activity7d = [
+const activity = [
   { dia: 'Lun', recibidos: 52, respondidos: 48 },
   { dia: 'Mar', recibidos: 61, respondidos: 55 },
   { dia: 'Mié', recibidos: 44, respondidos: 42 },
@@ -47,21 +51,7 @@ export const activity7d = [
   { dia: 'Dom', recibidos: 12, respondidos: 11 },
 ]
 
-export const categoryStyles = {
-  'Cliente nuevo': 'bg-emerald-100 text-emerald-700 ring-emerald-600/20',
-  Cotización: 'bg-blue-100 text-blue-700 ring-blue-600/20',
-  Reclamo: 'bg-red-100 text-red-700 ring-red-600/20',
-  Informativo: 'bg-slate-200 text-slate-600 ring-slate-500/20',
-  Proveedor: 'bg-purple-100 text-purple-700 ring-purple-600/20',
-}
-
-export const statusStyles = {
-  Respondido: 'bg-emerald-100 text-emerald-700',
-  Pendiente: 'bg-amber-100 text-amber-700',
-  Urgente: 'bg-red-100 text-red-700',
-}
-
-export const emails = [
+const emails = [
   {
     id: 1,
     hora: '9:15 AM',
@@ -70,6 +60,9 @@ export const emails = [
     asunto: 'Cotización servicio anual',
     categoria: 'Cotización',
     estado: 'Pendiente',
+    resumen: 'Solicita cotización formal del plan anual antes del cierre de mes.',
+    borrador:
+      'Hola Carlos, gracias por tu interés. Adjunto la cotización del plan anual con la vigencia y el alcance acordados. Quedo atento a tus comentarios.',
   },
   {
     id: 2,
@@ -79,6 +72,7 @@ export const emails = [
     asunto: 'Re: Propuesta comercial',
     categoria: 'Cliente nuevo',
     estado: 'Respondido',
+    resumen: 'Confirma que la propuesta fue aprobada internamente.',
   },
   {
     id: 3,
@@ -88,6 +82,7 @@ export const emails = [
     asunto: 'Factura #4521',
     categoria: 'Proveedor',
     estado: 'Respondido',
+    resumen: 'Envía la factura #4521 del mes, pago a 30 días.',
   },
   {
     id: 4,
@@ -97,6 +92,9 @@ export const emails = [
     asunto: 'Queja servicio postventa',
     categoria: 'Reclamo',
     estado: 'Urgente',
+    resumen: 'Reclama demora de 3 días en la atención postventa. Pide contacto hoy.',
+    borrador:
+      'Andrea, lamento la demora. Ya escalé tu caso con prioridad y hoy mismo te contactamos con una solución. Gracias por tu paciencia.',
   },
   {
     id: 5,
@@ -106,6 +104,7 @@ export const emails = [
     asunto: 'Solicitud de información de planes',
     categoria: 'Cliente nuevo',
     estado: 'Respondido',
+    resumen: 'Pide comparativo de planes para una empresa de 5 personas.',
   },
   {
     id: 6,
@@ -115,6 +114,7 @@ export const emails = [
     asunto: 'Boletín mensual de afiliados',
     categoria: 'Informativo',
     estado: 'Respondido',
+    resumen: 'Boletín informativo del mes. No requiere respuesta.',
   },
   {
     id: 7,
@@ -124,6 +124,9 @@ export const emails = [
     asunto: 'Renovación de contrato de soporte',
     categoria: 'Cotización',
     estado: 'Pendiente',
+    resumen: 'Solicita cotización de renovación del contrato de soporte 2026-2027.',
+    borrador:
+      'Hola Luisa Fernanda, con gusto preparamos la renovación. Te envío la cotización con las mismas condiciones y la nueva vigencia para tu revisión.',
   },
   {
     id: 8,
@@ -133,6 +136,7 @@ export const emails = [
     asunto: 'Confirmación de pedido #882',
     categoria: 'Proveedor',
     estado: 'Respondido',
+    resumen: 'Confirma el pedido #882 y fecha de entrega.',
   },
   {
     id: 9,
@@ -142,6 +146,9 @@ export const emails = [
     asunto: 'Reclamo por facturación duplicada',
     categoria: 'Reclamo',
     estado: 'Pendiente',
+    resumen: 'Detecta un cobro duplicado en su factura y pide corrección.',
+    borrador:
+      'Andrés, gracias por avisar. Estamos revisando el cobro duplicado con contabilidad y te confirmamos el ajuste en las próximas horas.',
   },
   {
     id: 10,
@@ -151,11 +158,11 @@ export const emails = [
     asunto: 'Interés en automatización de donaciones',
     categoria: 'Cliente nuevo',
     estado: 'Respondido',
+    resumen: 'Solicita propuesta para automatizar el flujo de donaciones.',
   },
 ]
 
-// Historial de interacciones por remitente para el "Timeline del cliente".
-export const clientTimelines = {
+const timelines = {
   'Carlos Méndez': [
     { fecha: '15 ago 2026', evento: 'Primer contacto: solicitud de información de servicios' },
     { fecha: '18 ago 2026', evento: 'Enviamos cotización del plan anual' },
@@ -203,25 +210,44 @@ export const clientTimelines = {
   ],
 }
 
-export const alerts = [
-  {
-    id: 1,
-    tone: 'red',
-    text: 'Andrea Ruiz — Reclamo sin responder hace 4 horas',
-  },
-  {
-    id: 2,
-    tone: 'amber',
-    text: 'Carlos Méndez — Cotización pendiente hace 2 días',
-  },
-  {
-    id: 3,
-    tone: 'green',
-    text: 'Meta semanal cumplida: 89% tasa de respuesta',
-  },
+const alerts = [
+  { id: 1, tone: 'red', text: 'Andrea Ruiz — Reclamo sin responder hace 4 horas' },
+  { id: 2, tone: 'amber', text: 'Carlos Méndez — Cotización pendiente hace 2 días' },
+  { id: 3, tone: 'green', text: 'Meta semanal cumplida: 89% tasa de respuesta' },
 ]
 
-export const aiSummary = {
+const aiSummary = {
   title: '📊 Resumen semanal generado por IA',
   text: 'Esta semana se recibieron 234 correos. Se respondieron 208 (89%). 3 clientes no han recibido respuesta en más de 48 horas: Andrea Ruiz, Carlos Méndez y TechCo Proveedores. La categoría con más volumen fue Cotizaciones (34%). Se recomienda priorizar los reclamos pendientes antes del cierre del día.',
+}
+
+function mockDashboard() {
+  return {
+    metrics,
+    activity,
+    emails,
+    timelines,
+    alerts,
+    aiSummary,
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+// --- API pública ---------------------------------------------------------
+
+export async function getDashboardData({ signal } = {}) {
+  if (!API_URL) {
+    // Pequeña espera para que el panel muestre su estado de carga real.
+    await new Promise((r) => setTimeout(r, 250))
+    return mockDashboard()
+  }
+
+  const res = await fetch(`${API_URL}/dashboard`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`El backend respondió ${res.status}`)
+  }
+  return res.json()
 }

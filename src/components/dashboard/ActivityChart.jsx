@@ -8,8 +8,6 @@ import {
   Tooltip,
   Legend,
 } from 'recharts'
-import { activity7d } from '../../data/mockData.js'
-
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
@@ -24,7 +22,7 @@ function CustomTooltip({ active, payload, label }) {
   )
 }
 
-export default function ActivityChart() {
+export default function ActivityChart({ data = [] }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0b1120] p-5">
       <h3 className="text-sm font-semibold text-white">
@@ -32,7 +30,7 @@ export default function ActivityChart() {
       </h3>
       <div className="mt-4 h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={activity7d} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis dataKey="dia" stroke="#64748b" fontSize={12} tickLine={false} />
             <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />

@@ -17,8 +17,9 @@ function formatoFechaHora(d) {
   return { fecha, hora }
 }
 
-export default function DashboardHeader() {
+export default function DashboardHeader({ mode = 'demo' }) {
   const [now, setNow] = useState(new Date())
+  const live = mode === 'live'
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
@@ -42,9 +43,13 @@ export default function DashboardHeader() {
             <p className="text-sm font-bold text-white sm:text-base">
               Soluctia SAS — Centro de Mando
             </p>
-            <p className="flex items-center gap-2 text-xs text-emerald-400">
-              <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-emerald-400" />
-              En vivo
+            <p
+              className={`flex items-center gap-2 text-xs ${live ? 'text-emerald-400' : 'text-amber-400'}`}
+            >
+              <span
+                className={`pulse-dot inline-block h-2 w-2 rounded-full ${live ? 'bg-emerald-400' : 'bg-amber-400'}`}
+              />
+              {live ? 'En vivo' : 'Demo'}
             </p>
           </div>
         </div>

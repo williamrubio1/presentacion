@@ -1,6 +1,6 @@
-import { emails, categoryStyles, statusStyles } from '../../data/mockData.js'
+import { categoryStyles, statusStyles, fallbackBadge } from '../../lib/badges.js'
 
-export default function EmailTable({ selected, onSelect }) {
+export default function EmailTable({ emails = [], selected, onSelect }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0b1120]">
       <div className="border-b border-white/10 px-5 py-4">
@@ -40,14 +40,14 @@ export default function EmailTable({ selected, onSelect }) {
                   <td className="px-5 py-3 text-slate-300">{mail.asunto}</td>
                   <td className="px-5 py-3">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${categoryStyles[mail.categoria]}`}
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${categoryStyles[mail.categoria] ?? fallbackBadge}`}
                     >
                       {mail.categoria}
                     </span>
                   </td>
                   <td className="px-5 py-3">
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[mail.estado]}`}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[mail.estado] ?? statusStyles.Pendiente}`}
                     >
                       {mail.estado === 'Urgente' && (
                         <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-red-600" />
