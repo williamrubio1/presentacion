@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-dark: #1a1a2e;
+  --color-brand-blue: #4361ee;
+  --color-brand-navy: #0f172a;
+  --color-positive: #10b981;
+  --color-alert: #ef4444;
+  --color-pending: #f59e0b;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Indicador "En vivo" */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+/* Aparición al hacer scroll */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal {
+  opacity: 0;
+}
+.reveal.is-visible {
+  animation: fade-up 0.7s ease forwards;
+}
+
+/* Estado urgente parpadeante en tabla */
+@keyframes blink-urgent {
+  0%,
+  100% {
+    background-color: rgba(239, 68, 68, 0.15);
+  }
+  50% {
+    background-color: rgba(239, 68, 68, 0.4);
+  }
+}
+.blink-urgent {
+  animation: blink-urgent 1.2s ease-in-out infinite;
+}
