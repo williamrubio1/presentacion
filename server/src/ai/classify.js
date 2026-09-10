@@ -38,8 +38,14 @@ Devuelve SOLO un objeto JSON, sin texto alrededor, con esta forma exacta:
   "summary": string,    // resumen en español, máximo 2 frases
   "draft": string       // borrador de respuesta cordial en español; "" si no requiere respuesta
 }
-Reglas: "alta" = reclamos, temas urgentes o clientes molestos. "Proveedor" cubre
-facturas, cuentas de cobro y órdenes de compra. No inventes datos que no estén en el correo.`
+Reglas:
+- "alta" = reclamos, temas urgentes o clientes molestos.
+- "Proveedor" cubre facturas, cuentas de cobro y órdenes de compra.
+- needsReply = false para notificaciones automáticas, boletines, confirmaciones de
+  registro/inicio de sesión, códigos de verificación, publicidad y correos de "no responder".
+  needsReply = true solo si una persona espera una respuesta nuestra.
+- Si needsReply = false, "draft" debe ser "".
+- No inventes datos que no estén en el correo.`
 
 const SYNS = {
   factura: 'Proveedor', facturación: 'Proveedor', facturacion: 'Proveedor',

@@ -109,12 +109,12 @@ async function activity() {
   return out
 }
 
-async function recentEmails(limit = 25) {
+async function recentEmails(limit = 40) {
   const rows = await query(
     `SELECT e.*, c.company
        FROM emails e
        LEFT JOIN contacts c ON c.email = e.from_email
-      WHERE e.from_owner = 0
+      WHERE e.from_owner = 0 AND e.archived = 0
       ORDER BY e.received_at DESC
       LIMIT ${Number(limit)}`,
   )
@@ -129,9 +129,12 @@ async function recentEmails(limit = 25) {
     categoria: r.category || 'Informativo',
     estado: estadoPanel(r),
     prioridad: r.priority,
+    necesitaRespuesta: Boolean(r.needs_reply),
     resumen: r.ai_summary || '',
     borrador: r.ai_draft || '',
     webLink: r.web_link || '',
+    leido: Boolean(r.is_read),
+    marcado: Boolean(r.flagged),
     status: r.status,
   }))
 }
@@ -211,7 +214,7 @@ async function alerts() {
 }
 
 export async function assembleDashboard() {
-  const emails = await recentEmails(25)
+  const emails = await recentEmails(40)
   const [m, a, t, al, summary] = await Promise.all([
     metrics(),
     activity(),

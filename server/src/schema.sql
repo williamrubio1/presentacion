@@ -68,3 +68,42 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_period (period)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Intenciones de respuesta (lista cerrada, editable desde el panel)
+CREATE TABLE IF NOT EXISTS intents (
+  id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+  intent_key  VARCHAR(64) NOT NULL UNIQUE,
+  label       VARCHAR(120) NOT NULL,
+  description VARCHAR(500) NOT NULL,
+  prompt_hint TEXT,
+  is_builtin  TINYINT(1) NOT NULL DEFAULT 0,
+  active      TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order  INT NOT NULL DEFAULT 100,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Reglas de clasificación configurables
+CREATE TABLE IF NOT EXISTS rules (
+  id           BIGINT AUTO_INCREMENT PRIMARY KEY,
+  field        VARCHAR(20) NOT NULL,   -- remitente | dominio | asunto | cuerpo
+  op           VARCHAR(20) NOT NULL,   -- contiene | igual | regex
+  value        VARCHAR(255) NOT NULL,
+  action       VARCHAR(20) NOT NULL,   -- categoria | prioridad | ignorar
+  action_value VARCHAR(64),
+  active       TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order   INT NOT NULL DEFAULT 100,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Seguimientos / compromisos (detectados por IA o creados a mano)
+CREATE TABLE IF NOT EXISTS followups (
+  id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+  email_id      VARCHAR(255) NULL,
+  contact_email VARCHAR(320) NULL,
+  description   VARCHAR(500) NOT NULL,
+  due_date      DATE NULL,
+  done          TINYINT(1) NOT NULL DEFAULT 0,
+  source        VARCHAR(16) NOT NULL DEFAULT 'ia',   -- ia | manual
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_done (done, due_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -226,7 +226,11 @@ function reset() {
   state = {
     metrics: metrics.map((m) => ({ ...m })),
     activity: activity.map((a) => ({ ...a })),
-    emails: emails.map((e) => ({ ...e, email: `${slug(e.remitente)}@ejemplo.co` })),
+    emails: emails.map((e) => ({
+      ...e,
+      email: `${slug(e.remitente)}@ejemplo.co`,
+      necesitaRespuesta: e.estado !== 'Respondido',
+    })),
     timelines: JSON.parse(JSON.stringify(timelines)),
     alerts: alerts.map((a) => ({ ...a })),
     aiSummary: { ...aiSummary },
@@ -249,6 +253,27 @@ export function mockReply(id) {
     const t = state.timelines[e.remitente]
     if (t) t.push({ fecha: 'hoy', evento: `Respuesta enviada: ${e.asunto}` })
   }
+}
+
+export const MOCK_INTENTS = [
+  { id: 1, label: 'Acuse de recibo', description: 'Confirmar recepción, sin comprometer nada' },
+  { id: 2, label: 'Responder con información', description: 'Contestar la consulta' },
+  { id: 3, label: 'Pedir más información', description: 'Solicitar los datos que faltan' },
+  { id: 4, label: 'Ofrecer cotización', description: 'Confirmar que se enviará' },
+  { id: 5, label: 'Proponer reunión', description: 'Sugerir horarios' },
+  { id: 6, label: 'Declinar cortésmente', description: 'Rechazar amable' },
+]
+
+export function mockGenerateDraft(id, intentId, instruccion) {
+  if (!state) reset()
+  const e = state.emails.find((x) => String(x.id) === String(id))
+  const it = MOCK_INTENTS.find((x) => x.id === intentId)
+  const quien = e?.remitente?.split(' ')[0] || 'Hola'
+  const extra = instruccion ? ` ${instruccion}.` : ''
+  return Promise.resolve({
+    draft: `Hola ${quien},\n\n[Demo · intención "${it?.label ?? '—'}"] Gracias por tu mensaje sobre "${e?.asunto ?? ''}".${extra}\n\nQuedamos atentos.\n\nEquipo Soluctia SAS`,
+    intent: it?.label ?? null,
+  })
 }
 
 export function mockUpdate(id, patch) {

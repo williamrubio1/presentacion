@@ -8,8 +8,13 @@ import { ensureSubscription } from '../graph/subscription.js'
 import { runMigration } from '../db-migrate.js'
 import { buildWeeklySummary } from '../services/summary.js'
 import { handleGraphNotification } from './graphNotifications.js'
+import { listIntents, createIntent, updateIntent, deleteIntent } from '../services/intents.js'
+import { generateDraft } from '../services/drafts.js'
 
 export const api = Router()
+
+// Envuelve un handler async y manda los errores al middleware central.
+const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).catch(next)
 
 // --- Auth --------------------------------------------------------------
 api.post('/login', (req, res) => {
@@ -63,6 +68,25 @@ api.post('/emails/:id/reply', requireAuth, async (req, res, next) => {
     next(e)
   }
 })
+
+// Genera un borrador para una intención (no lo envía).
+api.post(
+  '/emails/:id/draft',
+  requireAuth,
+  h(async (req, res) => {
+    const { intentId, instruccion } = req.body || {}
+    res.json(await generateDraft(req.params.id, { intentId, instruccion }))
+  }),
+)
+
+// --- Intenciones de respuesta ---------------------------------------
+api.get('/intents', requireAuth, h(async (req, res) => res.json(await listIntents())))
+api.post('/intents', requireAuth, h(async (req, res) => res.json(await createIntent(req.body || {}))))
+api.patch('/intents/:id', requireAuth, h(async (req, res) => res.json(await updateIntent(req.params.id, req.body || {}))))
+api.delete('/intents/:id', requireAuth, h(async (req, res) => {
+  await deleteIntent(req.params.id)
+  res.json({ ok: true })
+}))
 
 // --- Webhook de Microsoft Graph (sin auth, valida clientState) --------
 api.post('/graph/notifications', handleGraphNotification)
