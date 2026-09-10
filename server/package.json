@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "build": "node -e \"console.log('backend: sin paso de build')\"",
     "lint": "eslint .",
     "migrate": "node src/migrate.js",
     "seed": "node jobs/seed.js",
