@@ -1,5 +1,5 @@
 import { query, one } from '../db.js'
-import { config } from '../config.js'
+import { chat, aiEnabled } from '../ai/llm.js'
 
 function isoWeekKey(d = new Date()) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -51,36 +51,15 @@ function templateSummary({ tot, cats, pendientes }) {
 }
 
 async function llmSummary(stats) {
-  if (config.ai.provider === 'none') return null
+  if (!aiEnabled) return null
   const base = templateSummary(stats)
-  const url =
-    config.ai.provider === 'openai'
-      ? 'https://api.openai.com/v1/chat/completions'
-      : `${config.ai.azureEndpoint}/openai/deployments/${config.ai.azureDeployment}/chat/completions?api-version=2024-08-01-preview`
-  const headers = { 'Content-Type': 'application/json' }
-  if (config.ai.provider === 'openai') headers.Authorization = `Bearer ${config.ai.openaiKey}`
-  else headers['api-key'] = config.ai.azureKey
-
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        ...(config.ai.provider === 'openai' ? { model: config.ai.openaiModel } : {}),
-        temperature: 0.3,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Redacta un resumen ejecutivo en español (máx. 4 frases) del correo de la semana para un panel de control. Tono profesional y accionable.',
-          },
-          { role: 'user', content: `Datos base: ${base}` },
-        ],
-      }),
+    return await chat({
+      system:
+        'Redacta un resumen ejecutivo en español (máx. 4 frases) del correo de la semana para un panel de control. Tono profesional y accionable.',
+      user: `Datos base: ${base}`,
+      temperature: 0.3,
     })
-    if (!res.ok) return base
-    const data = await res.json()
-    return data.choices[0].message.content.trim()
   } catch {
     return base
   }

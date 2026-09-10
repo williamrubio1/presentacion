@@ -1,4 +1,4 @@
-import { config } from '../config.js'
+import { chat, aiEnabled } from './llm.js'
 
 // Categorías que entiende el panel (deben existir en src/lib/badges.js del frontend).
 export const CATEGORIES = [
@@ -40,41 +40,6 @@ Devuelve SOLO un JSON con esta forma exacta:
 }
 "alta" = reclamos, temas urgentes o clientes molestos. No inventes datos que no estén en el correo.`
 
-async function llmComplete(userContent) {
-  const { provider } = config.ai
-  let url
-  let headers = { 'Content-Type': 'application/json' }
-  let bodyModel = {}
-
-  if (provider === 'openai') {
-    url = 'https://api.openai.com/v1/chat/completions'
-    headers.Authorization = `Bearer ${config.ai.openaiKey}`
-    bodyModel = { model: config.ai.openaiModel }
-  } else if (provider === 'azure') {
-    url = `${config.ai.azureEndpoint}/openai/deployments/${config.ai.azureDeployment}/chat/completions?api-version=2024-08-01-preview`
-    headers['api-key'] = config.ai.azureKey
-  } else {
-    return null
-  }
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      ...bodyModel,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: userContent },
-      ],
-    }),
-  })
-  if (!res.ok) throw new Error(`IA ${res.status}: ${await res.text()}`)
-  const data = await res.json()
-  return JSON.parse(data.choices[0].message.content)
-}
-
 // Enriquece un correo. Nunca lanza: si falla la IA, cae a reglas.
 export async function classifyEmail(email) {
   const ruleCat = ruleCategory(email)
@@ -87,14 +52,14 @@ export async function classifyEmail(email) {
     draft: '',
   }
 
-  if (config.ai.provider === 'none') return base
+  if (!aiEnabled) return base
 
   try {
     const content = `Remitente: ${email.from_name || ''} <${email.from_email}>
 Asunto: ${email.subject || '(sin asunto)'}
 Cuerpo:
 ${(email.body_text || email.preview || '').slice(0, 4000)}`
-    const out = await llmComplete(content)
+    const out = JSON.parse(await chat({ system: SYSTEM, user: content, json: true }))
     return {
       category: CATEGORIES.includes(out.category) ? out.category : base.category,
       priority: ['alta', 'media', 'baja'].includes(out.priority) ? out.priority : base.priority,

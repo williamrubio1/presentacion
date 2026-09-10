@@ -32,7 +32,12 @@ export const config = {
   },
 
   ai: {
-    provider: process.env.AI_PROVIDER || 'none', // 'openai' | 'azure' | 'none'
+    // 'none' | 'anthropic' | 'gemini' | 'openai' | 'azure'
+    provider: process.env.AI_PROVIDER || 'none',
+    anthropicKey: process.env.ANTHROPIC_API_KEY || '',
+    anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+    geminiKey: process.env.GEMINI_API_KEY || '',
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
     openaiKey: process.env.OPENAI_API_KEY || '',
     openaiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     azureEndpoint: process.env.AZURE_OPENAI_ENDPOINT || '',

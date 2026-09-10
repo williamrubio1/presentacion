@@ -84,6 +84,30 @@ npm run dev               # http://localhost:8787
     -Description "Panel Buzon Soluctia"
   ```
 
+## IA (clasificación, resumen y borradores)
+
+Sin `AI_PROVIDER` (o `none`) el backend usa solo reglas: clasifica por palabras
+clave y no genera borradores. Para el enriquecimiento completo elige un
+proveedor en `.env`:
+
+| `AI_PROVIDER` | Clave | Dónde se obtiene | Costo |
+|---|---|---|---|
+| `anthropic` | `ANTHROPIC_API_KEY` | console.anthropic.com → *API keys* | De pago, ~centavos/mes para un buzón |
+| `gemini` | `GEMINI_API_KEY` | aistudio.google.com → *Get API key* | Capa gratuita (suficiente para un buzón) |
+| `openai` | `OPENAI_API_KEY` | platform.openai.com | De pago |
+| `azure` | `AZURE_OPENAI_*` | Portal de Azure | De pago (requiere suscripción Azure) |
+
+> La licencia de **Microsoft 365 Copilot no sirve** aquí: es una experiencia de
+> usuario dentro de Office, no una API. El equivalente Microsoft con API es
+> **Azure OpenAI**, que es una suscripción de Azure aparte.
+>
+> Una suscripción de **Claude.ai / Claude Code tampoco es API**: la API de
+> Anthropic se factura por separado en console.anthropic.com (muy económica).
+
+Tras cambiar el proveedor, reclasifica lo ya guardado:
+`curl "https://<api>/api/cron/classify?key=<CRON_SECRET>&n=200"` o borra
+`enriched_at` de las filas y corre `node jobs/sync.js`.
+
 ## Notas del hosting compartido
 
 - No hay WebSockets fiables: el panel refresca por *polling* cada 30 s.

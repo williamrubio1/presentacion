@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "migrate": "node src/migrate.js",
     "seed": "node jobs/seed.js",
+    "classify": "node jobs/classify.js",
     "sync": "node jobs/sync.js",
     "renew": "node jobs/renew.js",
     "summary": "node jobs/summary.js"
