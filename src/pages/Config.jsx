@@ -1,7 +1,199 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Loader2, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { api, isLive } from '../lib/api.js'
+
+const CATEGORIAS = ['Cliente nuevo', 'Cotización', 'Reclamo', 'Proveedor', 'Informativo', 'Seguimiento']
+const CAMPOS = { remitente: 'Remitente', dominio: 'Dominio', asunto: 'Asunto', cuerpo: 'Cuerpo' }
+const OPS = { contiene: 'contiene', igual: 'es igual a', regex: 'coincide con regex' }
+
+function RulesSection() {
+  const [rules, setRules] = useState(null)
+  const [form, setForm] = useState({
+    field: 'remitente',
+    op: 'contiene',
+    value: '',
+    action: 'categoria',
+    action_value: 'Informativo',
+  })
+  const [saving, setSaving] = useState(false)
+  const [reclas, setReclas] = useState(null)
+  const [err, setErr] = useState(null)
+
+  const load = useCallback(() => api.rules().then(setRules).catch((e) => setErr(e.message)), [])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const add = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setErr(null)
+    try {
+      const body = { ...form }
+      if (form.action === 'ignorar') body.action_value = null
+      await api.createRule(body)
+      setForm((f) => ({ ...f, value: '' }))
+      await load()
+    } catch (e2) {
+      setErr(e2.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const reclassify = async () => {
+    setReclas('run')
+    try {
+      await api.reclassify()
+      setReclas('done')
+    } catch {
+      setReclas('err')
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="text-lg font-bold text-white">Reglas de clasificación</h2>
+      <p className="mt-1 text-sm text-slate-400">
+        Se aplican antes de la IA. "Ignorar" archiva el correo y no lo muestra en el panel.
+      </p>
+
+      <form onSubmit={add} className="mt-4 space-y-3 rounded-xl border border-white/10 bg-[#0b1120] p-4">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-slate-400">Si</span>
+          <select
+            value={form.field}
+            onChange={(e) => setForm((f) => ({ ...f, field: e.target.value }))}
+            className="rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-slate-100"
+          >
+            {Object.entries(CAMPOS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <select
+            value={form.op}
+            onChange={(e) => setForm((f) => ({ ...f, op: e.target.value }))}
+            className="rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-slate-100"
+          >
+            {Object.entries(OPS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <input
+            required
+            value={form.value}
+            onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
+            placeholder="texto…"
+            className="min-w-[8rem] flex-1 rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-slate-100"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-slate-400">entonces</span>
+          <select
+            value={form.action}
+            onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))}
+            className="rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-slate-100"
+          >
+            <option value="categoria">poner categoría</option>
+            <option value="prioridad">poner prioridad</option>
+            <option value="ignorar">ignorar (archivar)</option>
+          </select>
+          {form.action === 'categoria' && (
+            <select
+              value={form.action_value}
+              onChange={(e) => setForm((f) => ({ ...f, action_value: e.target.value }))}
+              className="rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-slate-100"
+            >
+              {CATEGORIAS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          )}
+          {form.action === 'prioridad' && (
+            <select
+              value={form.action_value}
+              onChange={(e) => setForm((f) => ({ ...f, action_value: e.target.value }))}
+              className="rounded-lg border border-white/10 bg-[#0f172a] px-2 py-1.5 text-slate-100"
+            >
+              {['alta', 'media', 'baja'].map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        {err && <p className="text-sm text-red-400">{err}</p>}
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#4361ee] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3651c8] disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+          Añadir regla
+        </button>
+      </form>
+
+      <div className="mt-4 space-y-2">
+        {rules === null ? (
+          <p className="text-sm text-slate-500">Cargando…</p>
+        ) : rules.length === 0 ? (
+          <p className="text-sm text-slate-500">Sin reglas. Se usa solo la IA.</p>
+        ) : (
+          rules.map((r) => (
+            <div
+              key={r.id}
+              className={`flex items-center gap-3 rounded-xl border border-white/10 p-3 text-sm ${r.active ? 'bg-[#0b1120]' : 'bg-[#0b1120]/40'}`}
+            >
+              <p className="flex-1 text-slate-300">
+                <span className="text-slate-400">Si </span>
+                <b className="text-white">{CAMPOS[r.field]}</b> {OPS[r.op]}{' '}
+                <b className="text-white">"{r.value}"</b>
+                <span className="text-slate-400"> → </span>
+                {r.action === 'ignorar' ? (
+                  <b className="text-white">ignorar</b>
+                ) : (
+                  <>
+                    {r.action} = <b className="text-white">{r.action_value}</b>
+                  </>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => api.updateRule(r.id, { active: !r.active }).then(load)}
+                className="rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-white"
+              >
+                {r.active ? <Eye size={14} /> : <EyeOff size={14} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => api.deleteRule(r.id).then(load)}
+                className="rounded p-1.5 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={reclassify}
+        disabled={reclas === 'run'}
+        className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10 disabled:opacity-50"
+      >
+        {reclas === 'run' ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+        Reclasificar todos los correos
+      </button>
+      {reclas === 'done' && (
+        <p className="mt-2 text-sm text-emerald-400">
+          Reclasificación en curso. Puede tardar unos minutos; actualiza el panel.
+        </p>
+      )}
+      {reclas === 'err' && <p className="mt-2 text-sm text-red-400">No se pudo iniciar.</p>}
+    </section>
+  )
+}
 
 function IntentRow({ intent, onChange, onDelete }) {
   const [busy, setBusy] = useState(false)
@@ -176,6 +368,8 @@ export default function Config() {
             )}
           </div>
         </section>
+
+        {isLive && <RulesSection />}
       </main>
     </div>
   )

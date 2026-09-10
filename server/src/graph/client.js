@@ -69,6 +69,28 @@ export async function replyToMessage(id, comment) {
   })
 }
 
+export async function setMessageRead(id, isRead) {
+  await graphFetch(`/users/${mailbox()}/messages/${id}`, {
+    method: 'PATCH',
+    body: { isRead },
+  })
+}
+
+export async function setMessageFlag(id, flagged) {
+  await graphFetch(`/users/${mailbox()}/messages/${id}`, {
+    method: 'PATCH',
+    body: { flag: { flagStatus: flagged ? 'flagged' : 'notFlagged' } },
+  })
+}
+
+// Mueve el mensaje a la carpeta Archivo (folder bien conocido de Graph).
+export async function archiveMessage(id) {
+  await graphFetch(`/users/${mailbox()}/messages/${id}/move`, {
+    method: 'POST',
+    body: { destinationId: 'archive' },
+  })
+}
+
 export async function createSubscription() {
   const expirationDateTime = new Date(Date.now() + 60 * 60 * 1000 * 60).toISOString() // ~2.5 días
   return graphFetch('/subscriptions', {

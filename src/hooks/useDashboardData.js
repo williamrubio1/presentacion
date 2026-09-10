@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, isLive } from '../lib/api.js'
-import { getMockDashboard, mockReply, mockUpdate } from '../lib/dashboardData.js'
+import {
+  getMockDashboard,
+  mockReply,
+  mockUpdate,
+  mockFollowup,
+  mockAction,
+} from '../lib/dashboardData.js'
 
 const POLL_MS = 30_000
 
@@ -73,6 +79,26 @@ export function useDashboardData() {
     async update(id, patch) {
       if (isLive) await api.updateEmail(id, patch)
       else mockUpdate(id, patch)
+      reload()
+    },
+    async emailAction(id, action) {
+      if (isLive) await api.emailAction(id, action)
+      else await mockAction(id, action)
+      reload()
+    },
+    async addFollowup(data) {
+      if (isLive) await api.createFollowup(data)
+      else await mockFollowup('add', data)
+      reload()
+    },
+    async toggleFollowup(id, done) {
+      if (isLive) await api.updateFollowup(id, { done })
+      else await mockFollowup('toggle', { id, done })
+      reload()
+    },
+    async deleteFollowup(id) {
+      if (isLive) await api.deleteFollowup(id)
+      else await mockFollowup('delete', { id })
       reload()
     },
   }

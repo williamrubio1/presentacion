@@ -6,6 +6,7 @@ import MetricCards from '../components/dashboard/MetricCards.jsx'
 import ActivityChart from '../components/dashboard/ActivityChart.jsx'
 import EmailTable from '../components/dashboard/EmailTable.jsx'
 import ClientTimeline from '../components/dashboard/ClientTimeline.jsx'
+import Followups from '../components/dashboard/Followups.jsx'
 import Alerts from '../components/dashboard/Alerts.jsx'
 import AISummary from '../components/dashboard/AISummary.jsx'
 import LoginGate from '../components/dashboard/LoginGate.jsx'
@@ -152,10 +153,18 @@ export default function Dashboard() {
                   onOpen={(mail) => setOpenId(mail.id)}
                 />
               </div>
-              <ClientTimeline
-                cliente={openEmail?.remitente}
-                eventos={openEmail ? data.timelines?.[openEmail.remitente] : null}
-              />
+              <div className="space-y-6">
+                <Followups
+                  items={data.seguimientos ?? []}
+                  onAdd={actions.addFollowup}
+                  onToggle={actions.toggleFollowup}
+                  onDelete={actions.deleteFollowup}
+                />
+                <ClientTimeline
+                  cliente={openEmail?.remitente}
+                  eventos={openEmail ? data.timelines?.[openEmail.remitente] : null}
+                />
+              </div>
             </div>
 
             <Alerts alerts={data.alerts} />
@@ -171,6 +180,7 @@ export default function Dashboard() {
           onClose={() => setOpenId(null)}
           onReply={actions.reply}
           onResolve={(id) => actions.update(id, { status: 'resuelto' })}
+          onAction={actions.emailAction}
           onGenerate={(id, intentId, instr) =>
             apiIsLive ? api.generateDraft(id, intentId, instr) : mockGenerateDraft(id, intentId, instr)
           }

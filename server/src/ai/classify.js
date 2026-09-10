@@ -1,18 +1,12 @@
 import { chat, aiEnabled } from './llm.js'
+import { CATEGORIES } from './classify-categories.js'
+import { applyRules } from '../services/rules.js'
 
-// Categorías que entiende el panel (deben existir en src/lib/badges.js del frontend).
-export const CATEGORIES = [
-  'Cliente nuevo',
-  'Cotización',
-  'Reclamo',
-  'Proveedor',
-  'Informativo',
-  'Seguimiento',
-]
+export { CATEGORIES }
 
-// --- Reglas rápidas (sin costo) -----------------------------------------
+// --- Reglas rápidas de fábrica (respaldo si la IA falla) --------------
 
-const RULES = [
+const FALLBACK_RULES = [
   { cat: 'Reclamo', re: /\b(queja|reclamo|inconformidad|molesto|pésimo|no funciona|demora|tardan)\b/i },
   { cat: 'Cotización', re: /\b(cotizaci[oó]n|cotizar|presupuesto|precio|tarifa|propuesta económica)\b/i },
   { cat: 'Proveedor', re: /\b(factura|remisi[oó]n|orden de compra|pago|nómina|cuenta de cobro)\b/i },
@@ -22,7 +16,7 @@ const RULES = [
 
 function ruleCategory({ subject = '', preview = '' }) {
   const text = `${subject}\n${preview}`
-  for (const r of RULES) if (r.re.test(text)) return r.cat
+  for (const r of FALLBACK_RULES) if (r.re.test(text)) return r.cat
   return null
 }
 
@@ -36,7 +30,8 @@ Devuelve SOLO un objeto JSON, sin texto alrededor, con esta forma exacta:
   "sentiment": string,  // exactamente: positivo, neutral o negativo
   "needsReply": boolean,
   "summary": string,    // resumen en español, máximo 2 frases
-  "draft": string       // borrador de respuesta cordial en español; "" si no requiere respuesta
+  "draft": string,      // borrador de respuesta cordial en español; "" si no requiere respuesta
+  "followup": { "needed": boolean, "description": string, "dueInDays": number|null }
 }
 Reglas:
 - "alta" = reclamos, temas urgentes o clientes molestos.
@@ -45,12 +40,16 @@ Reglas:
   registro/inicio de sesión, códigos de verificación, publicidad y correos de "no responder".
   needsReply = true solo si una persona espera una respuesta nuestra.
 - Si needsReply = false, "draft" debe ser "".
+- followup.needed = true SOLO si el correo implica que NOSOTROS (Soluctia) debemos
+  hacer algo concreto después (enviar un documento, pagar, revisar, llamar…).
+  description = qué debemos hacer, en imperativo y breve. dueInDays = en cuántos días
+  como máximo, o null si no hay fecha.
 - No inventes datos que no estén en el correo.`
 
 const SYNS = {
   factura: 'Proveedor', facturación: 'Proveedor', facturacion: 'Proveedor',
   cobro: 'Proveedor', pago: 'Proveedor', compra: 'Proveedor',
-  queja: 'Reclamo', reclamación: 'Reclamo', 'pqr': 'Reclamo',
+  queja: 'Reclamo', reclamación: 'Reclamo', pqr: 'Reclamo',
   cliente: 'Cliente nuevo', prospecto: 'Cliente nuevo', lead: 'Cliente nuevo',
   cotización: 'Cotización', cotizacion: 'Cotización', presupuesto: 'Cotización',
   boletín: 'Informativo', boletin: 'Informativo', newsletter: 'Informativo',
@@ -73,16 +72,32 @@ const oneOf = (value, allowed, fallback) => {
 }
 
 // Enriquece un correo. Nunca lanza: si falla la IA, cae a reglas.
-export async function classifyEmail(email) {
-  const ruleCat = ruleCategory(email)
+// `rules` opcional: lista de reglas ya cargadas (para no consultar por cada correo).
+export async function classifyEmail(email, rules) {
+  // 1. Reglas configurables del usuario (tienen prioridad).
+  const override = await applyRules(email, rules).catch(() => null)
+  if (override?.ignore) {
+    return {
+      category: 'Ignorado',
+      priority: 'baja',
+      sentiment: 'neutral',
+      needsReply: false,
+      summary: 'Ignorado por una regla.',
+      draft: '',
+      archive: true,
+    }
+  }
+
+  const ruleCat = override?.category || ruleCategory(email)
   const cat = ruleCat || 'Informativo'
   const base = {
     category: cat,
-    priority: cat === 'Reclamo' ? 'alta' : 'media',
+    priority: override?.priority || (cat === 'Reclamo' ? 'alta' : 'media'),
     sentiment: 'neutral',
-    needsReply: cat !== 'Informativo',
+    needsReply: cat !== 'Informativo' && cat !== 'Ignorado',
     summary: (email.preview || '').slice(0, 200),
     draft: '',
+    followup: null,
   }
 
   if (!aiEnabled) return base
@@ -93,14 +108,21 @@ Asunto: ${email.subject || '(sin asunto)'}
 Cuerpo:
 ${(email.body_text || email.preview || '').slice(0, 4000)}`
     const out = JSON.parse(await chat({ system: SYSTEM, user: content, json: true }))
-    const category = normalizeCategory(out.category, base.category)
+    const fu = out.followup
     return {
-      category,
-      priority: oneOf(out.priority, ['alta', 'media', 'baja'], base.priority),
+      category: override?.category || normalizeCategory(out.category, base.category),
+      priority: override?.priority || oneOf(out.priority, ['alta', 'media', 'baja'], base.priority),
       sentiment: oneOf(out.sentiment, ['positivo', 'neutral', 'negativo'], 'neutral'),
       needsReply: Boolean(out.needsReply),
       summary: (out.summary || base.summary).slice(0, 500),
       draft: (out.draft || '').slice(0, 4000),
+      followup:
+        fu && fu.needed && fu.description
+          ? {
+              description: String(fu.description).slice(0, 500),
+              dueInDays: Number.isFinite(fu.dueInDays) ? Math.max(0, Math.round(fu.dueInDays)) : null,
+            }
+          : null,
     }
   } catch (err) {
     console.error('classifyEmail: fallo IA, uso reglas —', err.message)

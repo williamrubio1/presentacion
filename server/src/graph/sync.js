@@ -89,18 +89,36 @@ export async function classifyPending(limit = 20) {
       ORDER BY received_at DESC
       LIMIT ${Number(limit)}`,
   )
+  const rules = await query('SELECT * FROM rules WHERE active = 1 ORDER BY sort_order, id')
+
   for (const [i, row] of rows.entries()) {
     if (i > 0 && aiEnabled && config.ai.paceMs) await sleep(config.ai.paceMs)
-    const r = await classifyEmail(row)
+    const r = await classifyEmail(row, rules)
     // Si la IA falló y cayó a reglas, no marcamos enriched_at: se reintenta luego.
     const mark = r.aiFailed ? 'enriched_at' : 'UTC_TIMESTAMP()'
     await query(
       `UPDATE emails SET category = ?, priority = ?, sentiment = ?, needs_reply = ?,
-              ai_summary = ?, ai_draft = ?, enriched_at = ${mark}
+              ai_summary = ?, ai_draft = ?, archived = archived OR ?, enriched_at = ${mark}
        WHERE id = ?`,
-      [r.category, r.priority, r.sentiment, r.needsReply ? 1 : 0, r.summary, r.draft, row.id],
+      [r.category, r.priority, r.sentiment, r.needsReply ? 1 : 0, r.summary, r.draft, r.archive ? 1 : 0, row.id],
     )
-    // Cuota agotada: no tiene sentido seguir golpeando la API.
+
+    // Seguimiento detectado por la IA -> lo registramos (uno por correo).
+    if (r.followup && !r.aiFailed) {
+      const exists = await query('SELECT id FROM followups WHERE email_id = ? AND source = ?', [row.id, 'ia'])
+      if (!exists.length) {
+        const due =
+          r.followup.dueInDays != null
+            ? `DATE_ADD(CURDATE(), INTERVAL ${Number(r.followup.dueInDays)} DAY)`
+            : 'NULL'
+        await query(
+          `INSERT INTO followups (email_id, contact_email, description, due_date, source)
+           VALUES (?, ?, ?, ${due}, 'ia')`,
+          [row.id, row.from_email, r.followup.description],
+        )
+      }
+    }
+
     if (r.rateLimited) {
       console.warn('classifyPending: límite de la IA alcanzado, corto aquí')
       break

@@ -1,11 +1,22 @@
 import { useState } from 'react'
-import { X, Send, Check, Sparkles, Loader2, ExternalLink, Wand2 } from 'lucide-react'
+import {
+  X, Send, Check, Sparkles, Loader2, ExternalLink, Wand2,
+  Archive, Flag, MailOpen,
+} from 'lucide-react'
 import { categoryStyles, statusStyles, fallbackBadge } from '../../lib/badges.js'
 
 // Panel lateral de decisión sobre un correo: resumen IA, generación de
-// respuesta por intención, borrador editable y acciones.
+// respuesta por intención, borrador editable y acciones sobre el buzón.
 // Se re-monta al cambiar de correo (key={email.id} en el padre).
-export default function EmailDetail({ email, intents = [], onClose, onReply, onResolve, onGenerate }) {
+export default function EmailDetail({
+  email,
+  intents = [],
+  onClose,
+  onReply,
+  onResolve,
+  onGenerate,
+  onAction,
+}) {
   const [draft, setDraft] = useState(email.borrador || '')
   const [instruccion, setInstruccion] = useState('')
   const [busy, setBusy] = useState(null) // 'reply' | 'resolve' | 'gen:<id>'
@@ -30,6 +41,13 @@ export default function EmailDetail({ email, intents = [], onClose, onReply, onR
       const { draft: text } = await onGenerate(email.id, intent.id, instruccion)
       setDraft(text)
       setMsg(`Borrador generado: ${intent.label}. Revísalo antes de enviar.`)
+    })
+
+  const doAction = (action, label) =>
+    run(`act:${action}`, async () => {
+      await onAction(email.id, action)
+      setMsg(`${label}. Se reflejó en Outlook.`)
+      if (action === 'archivar') onClose()
     })
 
   return (
@@ -73,6 +91,53 @@ export default function EmailDetail({ email, intents = [], onClose, onReply, onR
             </a>
           )}
         </div>
+
+        {/* Acciones sobre el buzón real */}
+        {onAction && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => doAction('archivar', 'Archivado')}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 disabled:opacity-40"
+            >
+              {busy === 'act:archivar' ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
+              Archivar
+            </button>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() =>
+                email.marcado
+                  ? doAction('desmarcar', 'Bandera quitada')
+                  : doAction('marcar', 'Marcado con bandera')
+              }
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
+                email.marcado
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                  : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
+              }`}
+            >
+              {busy === 'act:marcar' || busy === 'act:desmarcar' ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Flag size={12} />
+              )}
+              {email.marcado ? 'Con bandera' : 'Marcar'}
+            </button>
+            {!email.leido && (
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => doAction('leido', 'Marcado como leído')}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 disabled:opacity-40"
+              >
+                {busy === 'act:leido' ? <Loader2 size={12} className="animate-spin" /> : <MailOpen size={12} />}
+                Marcar leído
+              </button>
+            )}
+          </div>
+        )}
 
         {email.resumen && (
           <div className="mt-5 rounded-xl border border-[#4361ee]/25 bg-[#4361ee]/10 p-4">

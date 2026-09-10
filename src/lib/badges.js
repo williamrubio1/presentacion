@@ -7,6 +7,7 @@ export const categoryStyles = {
   Informativo: 'bg-slate-200 text-slate-600 ring-slate-500/20',
   Proveedor: 'bg-purple-100 text-purple-700 ring-purple-600/20',
   Seguimiento: 'bg-amber-100 text-amber-700 ring-amber-600/20',
+  Ignorado: 'bg-slate-700 text-slate-400 ring-slate-500/20',
 }
 
 export const statusStyles = {

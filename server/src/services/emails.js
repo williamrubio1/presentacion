@@ -1,5 +1,10 @@
 import { query, one } from '../db.js'
-import { replyToMessage } from '../graph/client.js'
+import {
+  replyToMessage,
+  setMessageRead,
+  setMessageFlag,
+  archiveMessage,
+} from '../graph/client.js'
 
 export async function getEmail(id) {
   return one('SELECT * FROM emails WHERE id = ?', [id])
@@ -70,5 +75,42 @@ export async function sendReply(id, body) {
      VALUES (?, ?, UTC_TIMESTAMP(), 'respuesta_enviada', ?)`,
     [email.from_email, id, `Respuesta enviada: ${email.subject || '(sin asunto)'}`],
   )
+  return getEmail(id)
+}
+
+// Acciones que SÍ se reflejan en Outlook (vía Graph) + estado local.
+export async function applyEmailAction(id, action) {
+  const email = await getEmail(id)
+  if (!email) throw new Error('Correo no encontrado')
+
+  switch (action) {
+    case 'leido':
+      await setMessageRead(id, true)
+      await query('UPDATE emails SET is_read = 1 WHERE id = ?', [id])
+      break
+    case 'no_leido':
+      await setMessageRead(id, false)
+      await query('UPDATE emails SET is_read = 0 WHERE id = ?', [id])
+      break
+    case 'marcar':
+      await setMessageFlag(id, true)
+      await query('UPDATE emails SET flagged = 1 WHERE id = ?', [id])
+      break
+    case 'desmarcar':
+      await setMessageFlag(id, false)
+      await query('UPDATE emails SET flagged = 0 WHERE id = ?', [id])
+      break
+    case 'archivar':
+      await archiveMessage(id)
+      await query('UPDATE emails SET archived = 1, needs_reply = 0 WHERE id = ?', [id])
+      await query(
+        `INSERT INTO interactions (contact_email, email_id, occurred_at, kind, description)
+         VALUES (?, ?, UTC_TIMESTAMP(), 'accion', ?)`,
+        [email.from_email, id, 'Archivado desde el panel'],
+      )
+      break
+    default:
+      throw new Error(`Acción desconocida: ${action}`)
+  }
   return getEmail(id)
 }

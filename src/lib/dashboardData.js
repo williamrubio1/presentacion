@@ -230,11 +230,50 @@ function reset() {
       ...e,
       email: `${slug(e.remitente)}@ejemplo.co`,
       necesitaRespuesta: e.estado !== 'Respondido',
+      leido: e.estado === 'Respondido',
+      marcado: false,
     })),
     timelines: JSON.parse(JSON.stringify(timelines)),
     alerts: alerts.map((a) => ({ ...a })),
     aiSummary: { ...aiSummary },
+    seguimientos: [
+      { id: 1, descripcion: 'Enviar cotización ajustada a Carlos Méndez', vence: null, hecho: false, fuente: 'ia', contacto: 'Carlos Méndez' },
+      { id: 2, descripcion: 'Revisar cobro duplicado con contabilidad (Hotel Campanario)', vence: null, hecho: false, fuente: 'ia', contacto: 'Andrés Cortés' },
+      { id: 3, descripcion: 'Confirmar pago de Factura #4521 a TechCo', vence: null, hecho: false, fuente: 'manual', contacto: 'Proveedor TechCo' },
+    ],
   }
+}
+
+let nextFuId = 100
+export function mockFollowup(op, payload) {
+  if (!state) reset()
+  if (op === 'add') {
+    state.seguimientos.push({
+      id: nextFuId++,
+      descripcion: payload.description,
+      vence: payload.due_date || null,
+      hecho: false,
+      fuente: 'manual',
+      contacto: null,
+    })
+  } else if (op === 'toggle') {
+    const f = state.seguimientos.find((x) => x.id === payload.id)
+    if (f) f.hecho = payload.done
+  } else if (op === 'delete') {
+    state.seguimientos = state.seguimientos.filter((x) => x.id !== payload.id)
+  }
+  return Promise.resolve({ ok: true })
+}
+
+export function mockAction(id, action) {
+  if (!state) reset()
+  const e = state.emails.find((x) => String(x.id) === String(id))
+  if (!e) return Promise.resolve({ ok: true })
+  if (action === 'archivar') state.emails = state.emails.filter((x) => x.id !== e.id)
+  if (action === 'marcar') e.marcado = true
+  if (action === 'desmarcar') e.marcado = false
+  if (action === 'leido') e.leido = true
+  return Promise.resolve({ ok: true })
 }
 
 // --- API pública (modo demostración) -----------------------------------

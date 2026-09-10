@@ -1,6 +1,7 @@
 import { query } from '../db.js'
 import { config } from '../config.js'
 import { getWeeklySummary } from './summary.js'
+import { listFollowups } from './followups.js'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -215,12 +216,13 @@ async function alerts() {
 
 export async function assembleDashboard() {
   const emails = await recentEmails(40)
-  const [m, a, t, al, summary] = await Promise.all([
+  const [m, a, t, al, summary, seguimientos] = await Promise.all([
     metrics(),
     activity(),
     timelinesFor(emails),
     alerts(),
     getWeeklySummary(),
+    listFollowups(),
   ])
   return {
     metrics: m,
@@ -229,6 +231,7 @@ export async function assembleDashboard() {
     timelines: t,
     alerts: al,
     aiSummary: summary,
+    seguimientos,
     updatedAt: new Date().toISOString(),
   }
 }
