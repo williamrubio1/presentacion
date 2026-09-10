@@ -6,6 +6,7 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { config } from './config.js'
 import { api } from './routes/index.js'
+import { runMigration } from './db-migrate.js'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -51,6 +52,11 @@ app.use((err, req, res, next) => {
   console.error(err)
   res.status(500).json({ error: err.message || 'Error interno' })
 })
+
+// Aplica migraciones al arrancar (idempotente); no bloquea si la BD tarda.
+runMigration()
+  .then((t) => console.log('Migración OK:', t.join(', ')))
+  .catch((e) => console.error('Migración falló al arrancar:', e.message))
 
 app.listen(config.port, () => {
   console.log(`Servidor en :${config.port}`)
