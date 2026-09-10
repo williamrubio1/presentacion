@@ -1,7 +1,15 @@
-# SPA fallback para React Router en Hostinger (Apache)
+# Frontend estático + fallback SPA para React Router (Hostinger / Apache).
+#
+# La app Node.js (backend) se monta en /api mediante Passenger. hPanel añade
+# sus propias reglas para /api por encima de estas; la línea de abajo es una
+# salvaguarda para que el fallback de SPA NUNCA capture /api.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Deja pasar /api/* al backend (Passenger)
+  RewriteRule ^api(/.*)?$ - [L]
+
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

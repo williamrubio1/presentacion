@@ -1,146 +1,122 @@
 # Fase 4 — Despliegue en Hostinger
 
-Frontend estático + backend Node + MySQL, todo en el mismo hosting.
+Todo bajo el mismo dominio (mismo origen → sin CORS):
 
 ```
-presentacion.soluctiasas.com        → public_html/  (dist del frontend)
-api.presentacion.soluctiasas.com    → app Node.js (carpeta server/)
+presentacion.soluctiasas.com/         → public_html/  (dist del frontend)
+presentacion.soluctiasas.com/api/...  → app Node.js (carpeta server/, vía Passenger)
 ```
-
----
-
-## Paso 0 — Confirmar que el plan tiene Node.js
-
-hPanel → **Sitios web → (tu sitio) → Panel → Avanzado**. Debe aparecer
-**"Node.js"**. Si no aparece, el plan no lo soporta (Premium no; Business y
-Cloud sí) — avísame y vemos un backend externo gratuito.
 
 ---
 
 ## Paso 1 — Base de datos MySQL
 
-hPanel → **Bases de datos → MySQL → Crear base de datos nueva**:
-
-- Nombre de BD: `panel`  → queda como `u154452028_panel`
-- Usuario: `panel` → queda como `u154452028_panel`
-- Contraseña: genera una y **guárdala**
-
-Anota los 4 valores para el `.env` (`MYSQL_HOST=localhost`).
+Ya creada:
+- BD: `u154452028_presentacion`
+- Usuario: `u154452028_user`
+- Host: `localhost`
 
 ---
 
-## Paso 2 — Subdominio para la API
+## Paso 2 — Subir el backend por SSH
 
-hPanel → **Dominios → Subdominios → Crear**:
+```bash
+ssh -p 65002 u154452028@185.239.210.168
+cd ~
+git clone https://github.com/williamrubio1/presentacion.git
+```
 
-- Subdominio: `api.presentacion`  (dominio `soluctiasas.com`)
-  → resultado: `api.presentacion.soluctiasas.com`
-- Deja que cree la carpeta que sugiera (p. ej. `domains/api.presentacion.soluctiasas.com/public_html`).
-
-Espera unos minutos a que emita el **SSL** (candado) para ese subdominio.
+Queda en `~/presentacion`. Actualizaciones futuras: `cd ~/presentacion && git pull`
+y **reiniciar** la app en hPanel.
 
 ---
 
-## Paso 3 — App Node.js
+## Paso 3 — Crear la app Node.js
 
 hPanel → **Avanzado → Node.js → Crear aplicación**:
 
 | Campo | Valor |
 |---|---|
-| Versión de Node | 20 (o superior) |
-| Raíz de la aplicación | la carpeta del subdominio del Paso 2 |
-| URL de la aplicación | `api.presentacion.soluctiasas.com` |
+| Versión de Node.js | 22 |
+| Modo | Production |
+| Raíz de la aplicación | `presentacion/server` |
+| URL de la aplicación | `presentacion.soluctiasas.com/api` |
 | Archivo de inicio | `src/index.js` |
-
-### Subir el código
-
-Sube **el contenido de la carpeta `server/`** del repo a la raíz de la
-aplicación (por **Administrador de archivos**, FTP, o `git clone` por SSH).
-**No subas `node_modules` ni `.env`.**
-
-Estructura que debe quedar en la raíz de la app:
-```
-src/  jobs/  package.json  package-lock.json
-```
 
 ### Variables de entorno
 
-En la misma pantalla de la app Node.js, sección **Variables de entorno**,
-agrega una por una las de `server/.env.production.example` con tus valores
-reales. Claves que debes completar tú:
+En la misma pantalla, agrégalas de `server/.env.production.example`. Completa:
+`MYSQL_PASSWORD`, `PANEL_PASSWORD`, `MS_CLIENT_SECRET`, `GEMINI_API_KEY`.
 
-- `MYSQL_PASSWORD`, `MYSQL_USER`, `MYSQL_DATABASE` (Paso 1)
-- `PANEL_PASSWORD` (la que usarás para entrar al panel)
-- `MS_CLIENT_SECRET` — **crea uno nuevo** en Entra ID (no reuses el de pruebas):
-  *Certificados y secretos → Nuevo secreto de cliente*
-- `GEMINI_API_KEY` (la que ya tienes)
+### Instalar y preparar
 
-### Instalar y migrar
-
-En la pantalla de la app: botón **"Ejecutar NPM Install"**.
-Luego, en **Terminal / SSH** dentro de la carpeta de la app:
+Botón **"Ejecutar NPM Install"**. Luego, por SSH, activa el entorno de la app
+(hPanel muestra la línea `source ~/nodevenv/presentacion-server/22/bin/activate`
+o similar) y:
 
 ```bash
+cd ~/presentacion/server
 npm run migrate      # crea las tablas
 node jobs/sync.js    # trae y clasifica el histórico del buzón
 node jobs/renew.js   # crea la suscripción del webhook (tiempo real)
 ```
 
-Prueba: abre `https://api.presentacion.soluctiasas.com/api/health` → debe
-responder `{"ok":true,...}`.
+### Verificar
+
+`https://presentacion.soluctiasas.com/api/health` → `{"ok":true,...}`
+
+Si da 404: el enrutado de `/api` a Passenger no quedó activo (ver "Problemas"
+abajo).
 
 ---
 
-## Paso 4 — Cron jobs
+## Paso 4 — Frontend
 
-hPanel → **Avanzado → Trabajos Cron**. Usa la forma con `curl` (no depende de
-rutas):
-
-| Frecuencia | Comando |
-|---|---|
-| Cada 5 min | `curl -s "https://api.presentacion.soluctiasas.com/api/cron/sync?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
-| Cada 2 h | `curl -s "https://api.presentacion.soluctiasas.com/api/cron/renew?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
-| Lunes 6:30 | `curl -s "https://api.presentacion.soluctiasas.com/api/cron/summary?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
-
-(La `key` es el `CRON_SECRET`. Si lo cambiaste, ajústala.)
-
----
-
-## Paso 5 — Frontend
-
-En tu equipo, en la raíz del repo:
+En tu equipo, raíz del repo:
 
 ```bash
-echo "VITE_API_URL=https://api.presentacion.soluctiasas.com" > .env
+echo "VITE_API_URL=https://presentacion.soluctiasas.com" > .env
 npm run build
 ```
 
-Sube **el contenido de `dist/`** (incluido `dist/.htaccess`) a `public_html/`
-del dominio principal, reemplazando lo que haya.
+Sube **el contenido de `dist/`** a `public_html/` (incluye `dist/.htaccess`,
+que ya excluye `/api` del fallback SPA). Reemplaza lo que haya.
+
+---
+
+## Paso 5 — Cron jobs
+
+hPanel → **Avanzado → Trabajos Cron** (`key` = `CRON_SECRET`):
+
+| Frecuencia | Comando |
+|---|---|
+| `*/5 * * * *` | `curl -s "https://presentacion.soluctiasas.com/api/cron/sync?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
+| `0 */2 * * *` | `curl -s "https://presentacion.soluctiasas.com/api/cron/renew?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
+| `30 6 * * 1` | `curl -s "https://presentacion.soluctiasas.com/api/cron/summary?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
 
 ---
 
 ## Paso 6 — Verificar
 
-1. `https://presentacion.soluctiasas.com/dashboard` → debe pedir contraseña
-   (`PANEL_PASSWORD`).
-2. Al entrar: banner **"Conectado al buzón — datos reales"** y los correos
-   reales.
-3. Manda un correo de prueba a `contacto@soluctiasas.com` → en <1 min aparece
-   en el panel (webhook + cron).
+1. `https://presentacion.soluctiasas.com/dashboard` → pide contraseña (`PANEL_PASSWORD`).
+2. Entra → banner **"Conectado al buzón — datos reales"**.
+3. Envía un correo a `contacto@soluctiasas.com` → aparece en <1 min.
 
 ---
 
-## Notas
+## Problemas frecuentes
 
-- **Passenger duerme la app** tras inactividad; la despierta la siguiente
-  petición (arranque en frío 1-3 s). El cron `sync` cada 5 min es la red de
-  seguridad si el webhook llega con la app fría.
-- La **suscripción de Graph** para correo dura ~3 días → el cron `renew` la
-  mantiene viva.
-- Si `/api/cron/renew` falla con error de URL: el SSL del subdominio aún no
-  está listo, o `GRAPH_WEBHOOK_URL` no coincide exactamente con la ruta real.
-- El `MS_CLIENT_SECRET` de pruebas quedó expuesto en el chat: bórralo en Entra
-  ID cuando el de producción esté funcionando.
-- Falta (recomendado, no bloquea): **Application Access Policy** en Exchange
-  para limitar `Mail.Read` a un solo buzón. Comando en `server/README.md`.
+- **`/api/health` da 404 o el HTML del frontend**: Passenger no está capturando
+  `/api`. En la app Node.js de hPanel, confirma que la URL es
+  `presentacion.soluctiasas.com/api` (con el path). Si Hostinger no permite
+  montar la app en un subpath del sitio, usa un **subdominio**
+  `api.presentacion.soluctiasas.com`: cambia `GRAPH_WEBHOOK_URL` y
+  `VITE_API_URL` a ese host y reconstruye el frontend (el backend ya soporta
+  CORS entre subdominios).
+- **`/api/cron/renew` falla**: el webhook necesita HTTPS válido y que la ruta
+  pública coincida exacta con `GRAPH_WEBHOOK_URL`.
+- **Passenger duerme la app**: la despierta la siguiente petición (1-3 s). El
+  cron `sync` cada 5 min cubre los correos que lleguen con la app fría.
+- **Suscripción de Graph**: dura ~3 días; el cron `renew` la mantiene.
+- **Seguridad**: rota `MS_CLIENT_SECRET` (el de pruebas quedó en el chat) y
+  aplica la *Application Access Policy* en Exchange (comando en `server/README.md`).
