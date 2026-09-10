@@ -4,12 +4,29 @@ import { getOrBuildWeeklySummary } from './summary.js'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
+// Colombia = UTC-5 todo el año (sin horario de verano). Guardamos en UTC y
+// convertimos con un desfase fijo, así no dependemos de la zona horaria del
+// servidor MySQL ni de las tablas de zonas.
+const CO = 'INTERVAL 5 HOUR'
+
 function horaCO(d) {
-  return new Date(d).toLocaleTimeString('es-CO', {
-    hour: '2-digit',
+  return new Date(d).toLocaleTimeString('en-US', {
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
     timeZone: 'America/Bogota',
   })
+}
+
+// Fecha YYYY-MM-DD de hace `daysAgo` días, en hora de Colombia.
+function coDateKey(daysAgo = 0) {
+  const dt = new Date(Date.now() - daysAgo * 86_400_000)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(dt)
 }
 
 function estadoPanel(row) {
@@ -29,7 +46,9 @@ function humanAge(date) {
 
 async function metrics() {
   const [{ hoy }] = await query(
-    `SELECT COUNT(*) hoy FROM emails WHERE from_owner = 0 AND DATE(received_at) = CURDATE()`,
+    `SELECT COUNT(*) hoy FROM emails
+      WHERE from_owner = 0
+        AND DATE(received_at - ${CO}) = DATE(UTC_TIMESTAMP() - ${CO})`,
   )
   const [{ sin }] = await query(
     `SELECT COUNT(*) sin FROM emails WHERE from_owner = 0 AND needs_reply = 1
@@ -38,14 +57,14 @@ async function metrics() {
   const [avg] = await query(
     `SELECT AVG(TIMESTAMPDIFF(MINUTE, received_at, replied_at)) m
        FROM emails
-      WHERE replied_at IS NOT NULL AND received_at >= (NOW() - INTERVAL 7 DAY)`,
+      WHERE replied_at IS NOT NULL AND received_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)`,
   )
   const [rate] = await query(
     `SELECT
         SUM(CASE WHEN status IN ('respondido','resuelto') THEN 1 ELSE 0 END) resp,
         COUNT(*) total
        FROM emails
-      WHERE from_owner = 0 AND received_at >= (NOW() - INTERVAL 7 DAY)`,
+      WHERE from_owner = 0 AND received_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)`,
   )
 
   const avgMin = Math.round(avg?.m || 0)
@@ -69,22 +88,20 @@ async function metrics() {
 
 async function activity() {
   const rows = await query(
-    `SELECT DATE_FORMAT(received_at, '%Y-%m-%d') d,
+    `SELECT DATE_FORMAT(received_at - ${CO}, '%Y-%m-%d') d,
             COUNT(*) recibidos,
             SUM(CASE WHEN status IN ('respondido','resuelto') THEN 1 ELSE 0 END) respondidos
        FROM emails
-      WHERE from_owner = 0 AND received_at >= (CURDATE() - INTERVAL 6 DAY)
-      GROUP BY DATE_FORMAT(received_at, '%Y-%m-%d')`,
+      WHERE from_owner = 0 AND received_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)
+      GROUP BY DATE_FORMAT(received_at - ${CO}, '%Y-%m-%d')`,
   )
   const byDay = new Map(rows.map((r) => [r.d, r]))
   const out = []
   for (let i = 6; i >= 0; i--) {
-    const dt = new Date()
-    dt.setDate(dt.getDate() - i)
-    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+    const key = coDateKey(i)
     const r = byDay.get(key)
     out.push({
-      dia: DAYS[dt.getDay()],
+      dia: DAYS[new Date(`${key}T12:00:00Z`).getUTCDay()],
       recibidos: Number(r?.recibidos || 0),
       respondidos: Number(r?.respondidos || 0),
     })
@@ -162,7 +179,7 @@ async function alerts() {
   const [coti] = await query(
     `SELECT from_name, from_email, received_at FROM emails
       WHERE category = 'Cotización' AND status IN ('pendiente','en_espera')
-        AND received_at < (NOW() - INTERVAL 1 DAY)
+        AND received_at < (UTC_TIMESTAMP() - INTERVAL 1 DAY)
       ORDER BY received_at ASC LIMIT 1`,
   )
   if (coti) {
@@ -178,7 +195,7 @@ async function alerts() {
         SUM(CASE WHEN status IN ('respondido','resuelto') THEN 1 ELSE 0 END) resp,
         COUNT(*) total
        FROM emails
-      WHERE from_owner = 0 AND received_at >= (NOW() - INTERVAL 7 DAY)`,
+      WHERE from_owner = 0 AND received_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)`,
   )
   const pct = rate?.total ? Math.round((rate.resp / rate.total) * 100) : 0
   out.push({

@@ -46,7 +46,7 @@ export async function updateEmail(id, patch) {
   if (patch.status) {
     await query(
       `INSERT INTO interactions (contact_email, email_id, occurred_at, kind, description)
-       VALUES (?, ?, NOW(), 'cambio_estado', ?)`,
+       VALUES (?, ?, UTC_TIMESTAMP(), 'cambio_estado', ?)`,
       [email.from_email, id, `Estado cambiado a "${patch.status}"`],
     )
   }
@@ -62,12 +62,12 @@ export async function sendReply(id, body) {
   await replyToMessage(id, body.trim())
 
   await query(
-    `UPDATE emails SET status = 'respondido', needs_reply = 0, replied_at = NOW() WHERE id = ?`,
+    `UPDATE emails SET status = 'respondido', needs_reply = 0, replied_at = UTC_TIMESTAMP() WHERE id = ?`,
     [id],
   )
   await query(
     `INSERT INTO interactions (contact_email, email_id, occurred_at, kind, description)
-     VALUES (?, ?, NOW(), 'respuesta_enviada', ?)`,
+     VALUES (?, ?, UTC_TIMESTAMP(), 'respuesta_enviada', ?)`,
     [email.from_email, id, `Respuesta enviada: ${email.subject || '(sin asunto)'}`],
   )
   return getEmail(id)

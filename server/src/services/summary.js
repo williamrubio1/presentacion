@@ -15,17 +15,17 @@ async function weekStats() {
     `SELECT COUNT(*) recibidos,
             SUM(CASE WHEN status IN ('respondido','resuelto') THEN 1 ELSE 0 END) respondidos
        FROM emails
-      WHERE from_owner = 0 AND received_at >= (NOW() - INTERVAL 7 DAY)`,
+      WHERE from_owner = 0 AND received_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)`,
   )
   const cats = await query(
     `SELECT category, COUNT(*) n FROM emails
-      WHERE from_owner = 0 AND received_at >= (NOW() - INTERVAL 7 DAY)
+      WHERE from_owner = 0 AND received_at >= (UTC_TIMESTAMP() - INTERVAL 7 DAY)
       GROUP BY category ORDER BY n DESC`,
   )
   const pendientes = await query(
     `SELECT from_name, from_email FROM emails
       WHERE from_owner = 0 AND needs_reply = 1 AND status IN ('pendiente','en_espera')
-        AND received_at < (NOW() - INTERVAL 2 DAY)
+        AND received_at < (UTC_TIMESTAMP() - INTERVAL 2 DAY)
       ORDER BY received_at ASC LIMIT 5`,
   )
   return { tot, cats, pendientes }
@@ -37,7 +37,7 @@ function templateSummary({ tot, cats, pendientes }) {
   const pct = recibidos ? Math.round((respondidos / recibidos) * 100) : 0
   const topCat = cats[0]
   const topPct = topCat && recibidos ? Math.round((topCat.n / recibidos) * 100) : 0
-  const nombres = pendientes.map((p) => p.from_name || p.from_email).join(', ')
+  const nombres = [...new Set(pendientes.map((p) => p.from_name || p.from_email))].join(', ')
 
   let text = `Esta semana se recibieron ${recibidos} correos. Se respondieron ${respondidos} (${pct}%).`
   if (pendientes.length) {
@@ -102,7 +102,7 @@ export async function getOrBuildWeeklySummary() {
 
   await query(
     `INSERT INTO ai_summaries (period, title, body) VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE title = VALUES(title), body = VALUES(body), created_at = NOW()`,
+     ON DUPLICATE KEY UPDATE title = VALUES(title), body = VALUES(body), created_at = UTC_TIMESTAMP()`,
     [period, title, text],
   )
   return { title, text }

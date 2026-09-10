@@ -26,3 +26,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Notas locales con credenciales / capturas — NO subir
+microsoftGraph/
+*.png
+Captura de pantalla*

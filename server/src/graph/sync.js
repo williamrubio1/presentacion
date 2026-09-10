@@ -90,7 +90,7 @@ export async function classifyPending(limit = 20) {
     const r = await classifyEmail(row)
     await query(
       `UPDATE emails SET category = ?, priority = ?, sentiment = ?, needs_reply = ?,
-              ai_summary = ?, ai_draft = ?, enriched_at = NOW()
+              ai_summary = ?, ai_draft = ?, enriched_at = UTC_TIMESTAMP()
        WHERE id = ?`,
       [r.category, r.priority, r.sentiment, r.needsReply ? 1 : 0, r.summary, r.draft, row.id],
     )
