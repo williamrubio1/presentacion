@@ -5,6 +5,7 @@ import { assembleDashboard } from '../services/dashboard.js'
 import { getContact, updateEmail, sendReply } from '../services/emails.js'
 import { runSync, classifyPending } from '../graph/sync.js'
 import { ensureSubscription } from '../graph/subscription.js'
+import { runMigration } from '../db-migrate.js'
 import { getOrBuildWeeklySummary } from '../services/summary.js'
 import { handleGraphNotification } from './graphNotifications.js'
 
@@ -94,6 +95,25 @@ api.get('/cron/summary', requireCronKey, async (req, res, next) => {
 api.get('/cron/classify', requireCronKey, async (req, res, next) => {
   try {
     res.json({ classified: await classifyPending(Number(req.query.n) || 30) })
+  } catch (e) {
+    next(e)
+  }
+})
+
+// Puesta en marcha sin SSH: crea tablas + trae los correos + webhook.
+// La clasificación con IA la hace después el cron /api/cron/sync (por lotes).
+api.get('/cron/setup', requireCronKey, async (req, res, next) => {
+  try {
+    const tables = await runMigration()
+    const sync = await runSync({ classifyLimit: 0 }).catch((e) => ({ error: e.message }))
+    const subscription = await ensureSubscription().catch((e) => ({ error: e.message }))
+    res.json({
+      ok: true,
+      tables,
+      sync,
+      subscription,
+      nota: 'Los correos ya están cargados. La clasificación con IA se completa con el cron cada 5 min, o llama /api/cron/classify?key=...&n=50 varias veces.',
+    })
   } catch (e) {
     next(e)
   }

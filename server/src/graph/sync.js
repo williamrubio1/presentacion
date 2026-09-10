@@ -110,7 +110,8 @@ export async function classifyPending(limit = 20) {
 }
 
 // Sincronización incremental por delta query.
-export async function runSync() {
+// classifyLimit = 0 -> solo trae correos, la clasificación queda para el cron.
+export async function runSync({ classifyLimit = 30 } = {}) {
   const deltaLink = await getState('delta_link')
   const { messages, deltaLink: newDelta } = await getInboxDelta(deltaLink)
 
@@ -125,7 +126,7 @@ export async function runSync() {
   }
 
   if (newDelta) await setState('delta_link', newDelta)
-  const classified = await classifyPending(30)
+  const classified = classifyLimit > 0 ? await classifyPending(classifyLimit) : 0
 
   return { received: messages.length, inserted, classified }
 }
