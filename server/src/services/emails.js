@@ -1,4 +1,5 @@
 import { query, one } from '../db.js'
+import { toPanelEmail } from './emailView.js'
 import {
   replyToMessage,
   setMessageRead,
@@ -8,6 +9,18 @@ import {
 
 export async function getEmail(id) {
   return one('SELECT * FROM emails WHERE id = ?', [id])
+}
+
+// El correo en la forma que consume el panel (para abrir el detalle
+// desde cualquier vista).
+export async function getEmailForPanel(id) {
+  const row = await one(
+    `SELECT e.*, c.company FROM emails e
+       LEFT JOIN contacts c ON c.email = e.from_email WHERE e.id = ?`,
+    [id],
+  )
+  if (!row) throw new Error('Correo no encontrado')
+  return toPanelEmail(row)
 }
 
 export async function getContact(email) {

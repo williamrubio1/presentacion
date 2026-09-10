@@ -2,6 +2,7 @@ import { query } from '../db.js'
 import { config } from '../config.js'
 import { getWeeklySummary } from './summary.js'
 import { listFollowups } from './followups.js'
+import { toPanelEmail } from './emailView.js'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -9,15 +10,6 @@ const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 // convertimos con un desfase fijo, así no dependemos de la zona horaria del
 // servidor MySQL ni de las tablas de zonas.
 const CO = 'INTERVAL 5 HOUR'
-
-function horaCO(d) {
-  return new Date(d).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'America/Bogota',
-  })
-}
 
 // Fecha YYYY-MM-DD de hace `daysAgo` días, en hora de Colombia.
 function coDateKey(daysAgo = 0) {
@@ -28,12 +20,6 @@ function coDateKey(daysAgo = 0) {
     month: '2-digit',
     day: '2-digit',
   }).format(dt)
-}
-
-function estadoPanel(row) {
-  if (row.status === 'respondido' || row.status === 'resuelto') return 'Respondido'
-  if (row.priority === 'alta' && row.needs_reply) return 'Urgente'
-  return 'Pendiente'
 }
 
 function humanAge(date) {
@@ -119,25 +105,7 @@ async function recentEmails(limit = 40) {
       ORDER BY e.received_at DESC
       LIMIT ${Number(limit)}`,
   )
-  return rows.map((r) => ({
-    id: r.id,
-    hora: horaCO(r.received_at),
-    receivedAt: new Date(r.received_at).toISOString(),
-    remitente: r.from_name || r.from_email,
-    email: r.from_email,
-    empresa: r.company || '',
-    asunto: r.subject || '(sin asunto)',
-    categoria: r.category || 'Informativo',
-    estado: estadoPanel(r),
-    prioridad: r.priority,
-    necesitaRespuesta: Boolean(r.needs_reply),
-    resumen: r.ai_summary || '',
-    borrador: r.ai_draft || '',
-    webLink: r.web_link || '',
-    leido: Boolean(r.is_read),
-    marcado: Boolean(r.flagged),
-    status: r.status,
-  }))
+  return rows.map(toPanelEmail)
 }
 
 async function timelinesFor(emails) {

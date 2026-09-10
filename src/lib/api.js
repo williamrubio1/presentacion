@@ -39,6 +39,7 @@ export const api = {
   dashboard: (signal) => req('/api/dashboard', { signal }),
   contact: (email, signal) => req(`/api/contacts/${eid(email)}`, { signal }),
 
+  email: (id, signal) => req(`/api/emails/${eid(id)}`, { signal }),
   updateEmail: (id, patch) => req(`/api/emails/${eid(id)}`, { method: 'PATCH', body: patch }),
   reply: (id, bodyText) =>
     req(`/api/emails/${eid(id)}/reply`, { method: 'POST', body: { body: bodyText } }),

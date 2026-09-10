@@ -2,7 +2,13 @@ import { Router } from 'express'
 import { config } from '../config.js'
 import { issueSession, clearSession, isAuthed, requireAuth, requireCronKey } from '../middleware/session.js'
 import { assembleDashboard } from '../services/dashboard.js'
-import { getContact, updateEmail, sendReply, applyEmailAction } from '../services/emails.js'
+import {
+  getContact,
+  updateEmail,
+  sendReply,
+  applyEmailAction,
+  getEmailForPanel,
+} from '../services/emails.js'
 import { runSync, classifyPending } from '../graph/sync.js'
 import { query } from '../db.js'
 import { ensureSubscription } from '../graph/subscription.js'
@@ -60,6 +66,8 @@ api.get('/contacts/:email', requireAuth, async (req, res, next) => {
     next(e)
   }
 })
+
+api.get('/emails/:id', requireAuth, h(async (req, res) => res.json(await getEmailForPanel(req.params.id))))
 
 api.patch('/emails/:id', requireAuth, async (req, res, next) => {
   try {

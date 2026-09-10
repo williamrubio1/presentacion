@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { api, isLive } from '../lib/api.js'
 import { categoryStyles, fallbackBadge } from '../lib/badges.js'
+import EmailDetail from '../components/dashboard/EmailDetail.jsx'
 
 const PELOTA = {
   nosotros: { t: 'Nos toca responder', cls: 'bg-amber-500/15 text-amber-300' },
@@ -15,12 +16,11 @@ const PELOTA = {
 
 function ContactList({ items, sel, onSelect }) {
   const [q, setQ] = useState('')
-  const filtered = items.filter((c) => {
-    const s = `${c.nombre} ${c.empresa} ${c.email}`.toLowerCase()
-    return s.includes(q.toLowerCase())
-  })
+  const filtered = items.filter((c) =>
+    `${c.nombre} ${c.empresa} ${c.email}`.toLowerCase().includes(q.toLowerCase()),
+  )
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-[#0b1120]">
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120]">
       <div className="border-b border-white/10 p-3">
         <div className="flex items-center gap-2 rounded-lg bg-[#0f172a] px-3">
           <Search size={14} className="text-slate-500" />
@@ -32,7 +32,7 @@ function ContactList({ items, sel, onSelect }) {
           />
         </div>
       </div>
-      <ul className="min-h-0 flex-1 overflow-y-auto">
+      <ul className="flex-1 overflow-y-auto">
         {filtered.map((c) => (
           <li key={c.email}>
             <button
@@ -50,10 +50,8 @@ function ContactList({ items, sel, onSelect }) {
                   </span>
                 )}
               </p>
-              <p className="mt-0.5 flex items-center gap-2 truncate text-xs text-slate-400">
-                {c.empresa || c.email}
-              </p>
-              <p className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+              <p className="mt-0.5 truncate text-xs text-slate-400">{c.empresa || c.email}</p>
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <span>{c.total} correos</span>
                 {c.ultimoContacto && <span>· {c.ultimoContacto}</span>}
                 {c.categoria && (
@@ -75,13 +73,11 @@ function ContactList({ items, sel, onSelect }) {
   )
 }
 
-function ContactDetail({ email }) {
+function ContactDetail({ email, onOpenEmail }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  // El padre pasa key={email}, así que el componente se re-monta por contacto
-  // y `loading` arranca en true sin necesidad de setState en el efecto.
   useEffect(() => {
     let alive = true
     api
@@ -109,24 +105,36 @@ function ContactDetail({ email }) {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-slate-500">
-        <Loader2 size={18} className="animate-spin" /> Generando resumen…
+      <div className="grid min-h-0 place-items-center rounded-2xl border border-white/10 bg-[#0b1120] text-slate-500">
+        <span className="flex items-center gap-2">
+          <Loader2 size={18} className="animate-spin" /> Generando resumen…
+        </span>
       </div>
     )
   }
-  if (!data) return <div className="p-6 text-slate-500">No se pudo cargar.</div>
+  if (!data) {
+    return (
+      <div className="grid min-h-0 place-items-center rounded-2xl border border-white/10 bg-[#0b1120] text-slate-500">
+        No se pudo cargar.
+      </div>
+    )
+  }
 
   const pelota = data.quienResponde ? PELOTA[data.quienResponde] : null
 
   return (
-    <div className="h-full space-y-5 overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1120] p-6">
+    <div className="min-h-0 space-y-5 overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1120] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-white">{data.contacto.nombre}</h2>
           <p className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-            <span className="inline-flex items-center gap-1"><Mail size={12} /> {data.contacto.email}</span>
+            <span className="inline-flex items-center gap-1">
+              <Mail size={12} /> {data.contacto.email}
+            </span>
             {data.contacto.empresa && (
-              <span className="inline-flex items-center gap-1"><Building2 size={12} /> {data.contacto.empresa}</span>
+              <span className="inline-flex items-center gap-1">
+                <Building2 size={12} /> {data.contacto.empresa}
+              </span>
             )}
             <span>{data.contacto.total} correos</span>
             {data.contacto.primerContacto && <span>desde {data.contacto.primerContacto}</span>}
@@ -147,9 +155,7 @@ function ContactDetail({ email }) {
         <p className="flex items-center gap-2 text-xs font-semibold text-[#8ea2ff]">
           <Sparkles size={13} /> En qué va la conversación
           {data.resumenDesactualizado && (
-            <span className="rounded bg-white/10 px-1.5 text-[10px] text-slate-400">
-              actualizando…
-            </span>
+            <span className="rounded bg-white/10 px-1.5 text-[10px] text-slate-400">actualizando…</span>
           )}
         </p>
         {data.estado && <p className="mt-2 text-sm font-semibold text-white">{data.estado}</p>}
@@ -164,27 +170,32 @@ function ContactDetail({ email }) {
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-slate-400">Correos ({data.correos.length})</p>
+        <p className="text-xs font-semibold text-slate-400">
+          Correos ({data.correos.length}) — clic para ver y responder
+        </p>
         <ul className="mt-2 space-y-1">
           {data.correos.map((c) => (
-            <li
-              key={c.id}
-              className="flex items-center gap-2.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-sm"
-            >
-              {c.direccion === 'enviado' ? (
-                <ArrowUpRight size={14} className="shrink-0 text-emerald-400" />
-              ) : (
-                <ArrowDownLeft size={14} className="shrink-0 text-[#8ea2ff]" />
-              )}
-              <span className="w-20 shrink-0 text-xs text-slate-500">{c.fecha}</span>
-              <span className="min-w-0 flex-1 truncate text-slate-300">{c.asunto}</span>
-              {c.categoria && (
-                <span
-                  className={`shrink-0 rounded px-1.5 text-xs ring-1 ring-inset ${categoryStyles[c.categoria] ?? fallbackBadge}`}
-                >
-                  {c.categoria}
-                </span>
-              )}
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => onOpenEmail(c.id)}
+                className="flex w-full items-center gap-2.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-left text-sm transition hover:border-[#4361ee]/40 hover:bg-white/5"
+              >
+                {c.direccion === 'enviado' ? (
+                  <ArrowUpRight size={14} className="shrink-0 text-emerald-400" />
+                ) : (
+                  <ArrowDownLeft size={14} className="shrink-0 text-[#8ea2ff]" />
+                )}
+                <span className="w-20 shrink-0 text-xs text-slate-500">{c.fecha}</span>
+                <span className="min-w-0 flex-1 truncate text-slate-300">{c.asunto}</span>
+                {c.categoria && (
+                  <span
+                    className={`shrink-0 rounded px-1.5 text-xs ring-1 ring-inset ${categoryStyles[c.categoria] ?? fallbackBadge}`}
+                  >
+                    {c.categoria}
+                  </span>
+                )}
+              </button>
             </li>
           ))}
         </ul>
@@ -211,6 +222,9 @@ function ContactDetail({ email }) {
 export default function Contactos() {
   const [items, setItems] = useState(null)
   const [sel, setSel] = useState(null)
+  const [intents, setIntents] = useState([])
+  const [openEmail, setOpenEmail] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [error, setError] = useState(
     isLive ? null : 'Los contactos están disponibles solo con el backend conectado.',
   )
@@ -230,8 +244,39 @@ export default function Contactos() {
   )
 
   useEffect(() => {
-    if (isLive) load()
+    if (!isLive) return
+    load()
+    api.intents().then(setIntents).catch(() => {})
   }, [load])
+
+  const openEmailById = (id) => api.email(id).then(setOpenEmail).catch(() => {})
+  const refreshAll = () => {
+    setRefreshKey((k) => k + 1)
+    load()
+  }
+  const reopen = async (id) => {
+    const e = await api.email(id).catch(() => null)
+    setOpenEmail(e)
+  }
+
+  const handlers = {
+    onReply: async (id, body) => {
+      await api.reply(id, body)
+      refreshAll()
+      reopen(id)
+    },
+    onResolve: async (id) => {
+      await api.updateEmail(id, { status: 'resuelto' })
+      refreshAll()
+      reopen(id)
+    },
+    onAction: async (id, action) => {
+      await api.emailAction(id, action)
+      refreshAll()
+      if (action !== 'archivar') reopen(id)
+    },
+    onGenerate: (id, intentId, instr) => api.generateDraft(id, intentId, instr),
+  }
 
   return (
     <div className="flex h-screen flex-col bg-[#0f172a] text-slate-100">
@@ -248,24 +293,24 @@ export default function Contactos() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 overflow-hidden p-5">
+      <main className="mx-auto w-full max-w-7xl flex-1 overflow-hidden p-5">
         {error ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             {error}
           </div>
         ) : items === null ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-slate-500">
+          <div className="flex h-full items-center justify-center gap-2 text-slate-500">
             <Loader2 size={18} className="animate-spin" /> Cargando contactos…
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-slate-500">
+          <div className="flex h-full items-center justify-center text-slate-500">
             Aún no hay contactos. Llegarán cuando entren correos.
           </div>
         ) : (
-          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[320px_1fr]">
+          <div className="grid h-full gap-4 lg:grid-cols-[320px_1fr]">
             <ContactList items={items} sel={sel} onSelect={setSel} />
             {sel ? (
-              <ContactDetail key={sel} email={sel} />
+              <ContactDetail key={`${sel}-${refreshKey}`} email={sel} onOpenEmail={openEmailById} />
             ) : (
               <div className="grid place-items-center rounded-2xl border border-white/10 bg-[#0b1120] text-slate-500">
                 Selecciona un contacto
@@ -274,6 +319,16 @@ export default function Contactos() {
           </div>
         )}
       </main>
+
+      {openEmail && (
+        <EmailDetail
+          key={openEmail.id}
+          email={openEmail}
+          intents={intents}
+          onClose={() => setOpenEmail(null)}
+          {...handlers}
+        />
+      )}
     </div>
   )
 }
