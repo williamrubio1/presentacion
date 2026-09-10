@@ -95,6 +95,16 @@ CREATE TABLE IF NOT EXISTS rules (
   created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Resumen de la relación con cada contacto (generado por IA, cacheado)
+CREATE TABLE IF NOT EXISTS contact_summaries (
+  contact_email VARCHAR(320) PRIMARY KEY,
+  summary       TEXT,
+  estado        VARCHAR(255),
+  quien_responde VARCHAR(32),           -- nosotros | ellos | nadie
+  last_email_at DATETIME NULL,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Seguimientos / compromisos (detectados por IA o creados a mano)
 CREATE TABLE IF NOT EXISTS followups (
   id            BIGINT AUTO_INCREMENT PRIMARY KEY,

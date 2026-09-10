@@ -61,6 +61,11 @@ export const api = {
   deleteRule: (id) => req(`/api/rules/${eid(id)}`, { method: 'DELETE' }),
   reclassify: () => req('/api/reclassify', { method: 'POST' }),
 
+  // Contactos
+  contactos: (signal) => req('/api/contactos', { signal }),
+  contactoDetalle: (email, force, signal) =>
+    req(`/api/contactos/${eid(email)}${force ? '?force=1' : ''}`, { signal }),
+
   // Seguimientos
   followups: (signal) => req('/api/followups', { signal }),
   createFollowup: (data) => req('/api/followups', { method: 'POST', body: data }),

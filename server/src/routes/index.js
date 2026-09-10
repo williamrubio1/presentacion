@@ -18,6 +18,7 @@ import {
   updateFollowup,
   deleteFollowup,
 } from '../services/followups.js'
+import { listContacts, getContactDetail } from '../services/contacts.js'
 
 export const api = Router()
 
@@ -122,6 +123,18 @@ api.post(
     await query('UPDATE emails SET enriched_at = NULL WHERE from_owner = 0')
     classifyPending(500).catch((e) => console.error('reclassify:', e.message))
     res.json({ ok: true, nota: 'Reclasificación en curso; se completa en segundo plano.' })
+  }),
+)
+
+// --- Contactos (lista + resumen de la relación) -------------------
+api.get('/contactos', requireAuth, h(async (req, res) => res.json(await listContacts())))
+api.get(
+  '/contactos/:email',
+  requireAuth,
+  h(async (req, res) => {
+    res.json(
+      await getContactDetail(req.params.email.toLowerCase(), { force: req.query.force === '1' }),
+    )
   }),
 )
 

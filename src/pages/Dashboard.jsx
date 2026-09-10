@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { RefreshCw, Loader2, TriangleAlert, LogOut, Settings } from 'lucide-react'
+import { RefreshCw, Loader2, TriangleAlert, LogOut, Settings, Users } from 'lucide-react'
 import DashboardHeader from '../components/layout/DashboardHeader.jsx'
 import MetricCards from '../components/dashboard/MetricCards.jsx'
 import ActivityChart from '../components/dashboard/ActivityChart.jsx'
@@ -85,6 +85,13 @@ export default function Dashboard() {
             </button>
             {isLive && (
               <>
+                <Link
+                  to="/contactos"
+                  className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+                >
+                  <Users size={13} />
+                  Contactos
+                </Link>
                 <Link
                   to="/config"
                   className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10"
