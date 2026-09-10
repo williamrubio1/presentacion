@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser'
 import { config } from './config.js'
 import { api } from './routes/index.js'
 import { runMigration } from './db-migrate.js'
+import { startScheduler } from './scheduler.js'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -53,10 +54,16 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Error interno' })
 })
 
-// Aplica migraciones al arrancar (idempotente); no bloquea si la BD tarda.
+// Aplica migraciones al arrancar (idempotente); luego arranca el scheduler.
 runMigration()
-  .then((t) => console.log('Migración OK:', t.join(', ')))
-  .catch((e) => console.error('Migración falló al arrancar:', e.message))
+  .then((t) => {
+    console.log('Migración OK:', t.join(', '))
+    startScheduler()
+  })
+  .catch((e) => {
+    console.error('Migración falló al arrancar:', e.message)
+    startScheduler()
+  })
 
 app.listen(config.port, () => {
   console.log(`Servidor en :${config.port}`)
