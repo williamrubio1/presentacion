@@ -1,30 +1,44 @@
 import { useState } from 'react'
-import { Mail, Send, CheckCircle2 } from 'lucide-react'
+import { Mail, Send, CheckCircle2, Loader2 } from 'lucide-react'
 import Reveal from '../Reveal.jsx'
+import { api, isLive } from '../../lib/api.js'
 
 export default function Contact() {
-  const [form, setForm] = useState({ nombre: '', email: '', mensaje: '' })
-  const [enviado, setEnviado] = useState(false)
+  const [form, setForm] = useState({ nombre: '', email: '', mensaje: '', website: '' })
+  const [estado, setEstado] = useState('idle') // idle | sending | ok | error
+  const [error, setError] = useState(null)
 
-  const onChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+  const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault()
-    setEnviado(true)
-    setForm({ nombre: '', email: '', mensaje: '' })
+    setError(null)
+
+    if (!isLive) {
+      // Sin backend (demo): solo mostramos la confirmación.
+      setEstado('ok')
+      setForm({ nombre: '', email: '', mensaje: '', website: '' })
+      return
+    }
+
+    setEstado('sending')
+    try {
+      await api.contactForm(form)
+      setEstado('ok')
+      setForm({ nombre: '', email: '', mensaje: '', website: '' })
+    } catch (err) {
+      setError(err.message || 'No se pudo enviar')
+      setEstado('error')
+    }
   }
 
   return (
     <section id="contacto" className="bg-white py-20">
       <div className="mx-auto grid max-w-5xl gap-10 px-5 md:grid-cols-2">
         <Reveal>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Hablemos
-          </h2>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Hablemos</h2>
           <p className="mt-3 text-slate-500">
-            Cuéntanos qué proceso te está quitando tiempo y te mostramos cómo
-            automatizarlo.
+            Cuéntanos qué proceso te está quitando tiempo y te mostramos cómo automatizarlo.
           </p>
           <a
             href="mailto:contacto@soluctiasas.com"
@@ -36,18 +50,18 @@ export default function Contact() {
         </Reveal>
 
         <Reveal delay={120}>
-          {enviado ? (
+          {estado === 'ok' ? (
             <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
               <CheckCircle2 size={40} className="text-emerald-600" />
-              <p className="mt-3 font-semibold text-emerald-800">
-                ¡Mensaje enviado!
-              </p>
+              <p className="mt-3 font-semibold text-emerald-800">¡Mensaje enviado!</p>
               <p className="mt-1 text-sm text-emerald-700">
-                Te responderemos pronto (demo — no se envió nada real).
+                {isLive
+                  ? 'Recibimos tu mensaje y te responderemos pronto.'
+                  : 'Demo — no se envió nada real.'}
               </p>
               <button
                 type="button"
-                onClick={() => setEnviado(false)}
+                onClick={() => setEstado('idle')}
                 className="mt-4 text-sm font-medium text-emerald-700 underline"
               >
                 Enviar otro
@@ -58,11 +72,19 @@ export default function Contact() {
               onSubmit={onSubmit}
               className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-6"
             >
+              {/* honeypot anti-spam: oculto para personas */}
+              <input
+                type="text"
+                name="website"
+                value={form.website}
+                onChange={onChange}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                className="hidden"
+              />
               <div>
-                <label
-                  htmlFor="nombre"
-                  className="mb-1 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="nombre" className="mb-1 block text-sm font-medium text-slate-700">
                   Nombre
                 </label>
                 <input
@@ -75,10 +97,7 @@ export default function Contact() {
                 />
               </div>
               <div>
-                <label
-                  htmlFor="email"
-                  className="mb-1 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
                   Email
                 </label>
                 <input
@@ -92,10 +111,7 @@ export default function Contact() {
                 />
               </div>
               <div>
-                <label
-                  htmlFor="mensaje"
-                  className="mb-1 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="mensaje" className="mb-1 block text-sm font-medium text-slate-700">
                   Mensaje
                 </label>
                 <textarea
@@ -108,11 +124,19 @@ export default function Contact() {
                   className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#4361ee] focus:ring-2 focus:ring-[#4361ee]/20"
                 />
               </div>
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#4361ee] px-4 py-3 font-semibold text-white transition hover:bg-[#3651c8]"
+                disabled={estado === 'sending'}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#4361ee] px-4 py-3 font-semibold text-white transition hover:bg-[#3651c8] disabled:opacity-60"
               >
-                <Send size={16} />
+                {estado === 'sending' ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Send size={16} />
+                )}
                 Enviar mensaje
               </button>
             </form>

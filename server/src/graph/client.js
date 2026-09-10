@@ -27,7 +27,7 @@ async function graphFetch(pathOrUrl, { method = 'GET', body, headers = {} } = {}
 }
 
 const SELECT =
-  'id,conversationId,receivedDateTime,subject,bodyPreview,body,from,isRead,webLink,sender'
+  'id,conversationId,receivedDateTime,subject,bodyPreview,body,from,isRead,webLink,sender,replyTo'
 
 // Delta de la bandeja de entrada. Devuelve mensajes + el deltaLink siguiente.
 export async function getInboxDelta(deltaLink) {
@@ -61,11 +61,39 @@ export async function getMessage(id) {
   })
 }
 
-// Responde al remitente. El texto va como comentario sobre el hilo original.
-export async function replyToMessage(id, comment) {
+// Responde a un correo. `toEmail` fuerza el destinatario (útil para correos
+// del formulario web, cuyo remitente técnico es el propio buzón).
+export async function replyToMessage(id, comment, toEmail) {
   await graphFetch(`/users/${mailbox()}/messages/${id}/reply`, {
     method: 'POST',
-    body: { comment },
+    body: {
+      comment,
+      ...(toEmail
+        ? { message: { toRecipients: [{ emailAddress: { address: toEmail } }] } }
+        : {}),
+    },
+  })
+}
+
+// Envía un correo desde el buzón (usado por el formulario de la web).
+export async function sendMail({ subject, html, replyToEmail, replyToName }) {
+  await graphFetch(`/users/${mailbox()}/sendMail`, {
+    method: 'POST',
+    body: {
+      message: {
+        subject,
+        body: { contentType: 'HTML', content: html },
+        toRecipients: [{ emailAddress: { address: config.graph.mailbox } }],
+        ...(replyToEmail
+          ? {
+              replyTo: [
+                { emailAddress: { address: replyToEmail, name: replyToName || replyToEmail } },
+              ],
+            }
+          : {}),
+      },
+      saveToSentItems: false,
+    },
   })
 }
 

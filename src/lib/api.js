@@ -33,6 +33,9 @@ async function req(path, { method = 'GET', body, signal } = {}) {
 const eid = (id) => encodeURIComponent(id)
 
 export const api = {
+  // Formulario de contacto de la web (público, sin sesión)
+  contactForm: (data) => req('/api/contacto', { method: 'POST', body: data }),
+
   session: (signal) => req('/api/me', { signal }),
   login: (password) => req('/api/login', { method: 'POST', body: { password } }),
   logout: () => req('/api/logout', { method: 'POST' }),

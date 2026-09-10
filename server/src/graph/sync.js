@@ -11,8 +11,23 @@ function toMySQLDate(iso) {
 }
 
 function normalize(msg) {
-  const addr = msg.from?.emailAddress || msg.sender?.emailAddress || {}
-  const fromEmail = (addr.address || 'desconocido@desconocido').toLowerCase()
+  const mailbox = config.graph.mailbox.toLowerCase()
+  let addr = msg.from?.emailAddress || msg.sender?.emailAddress || {}
+  let fromEmail = (addr.address || 'desconocido@desconocido').toLowerCase()
+
+  // Correos del formulario web: los envía el propio buzón, pero el remitente
+  // real (el visitante) va en replyTo. Lo tratamos como entrante de esa persona.
+  const replyAddr = msg.replyTo?.[0]?.emailAddress
+  if (
+    /^\s*\[web\]/i.test(msg.subject || '') &&
+    fromEmail === mailbox &&
+    replyAddr?.address &&
+    replyAddr.address.toLowerCase() !== mailbox
+  ) {
+    addr = replyAddr
+    fromEmail = replyAddr.address.toLowerCase()
+  }
+
   return {
     id: msg.id,
     conversation_id: msg.conversationId || null,
@@ -24,7 +39,7 @@ function normalize(msg) {
     body_text: typeof msg.body?.content === 'string' ? msg.body.content.slice(0, 8000) : null,
     web_link: msg.webLink || null,
     is_read: msg.isRead ? 1 : 0,
-    from_owner: fromEmail === config.graph.mailbox.toLowerCase() ? 1 : 0,
+    from_owner: fromEmail === mailbox ? 1 : 0,
   }
 }
 
@@ -51,10 +66,20 @@ async function addInteraction(email, emailId, when, kind, description) {
 // Guarda un mensaje si es nuevo. Devuelve true si lo insertó.
 async function saveMessage(msg) {
   const e = normalize(msg)
-  const existing = await query('SELECT id FROM emails WHERE id = ?', [e.id])
+  const existing = await query(
+    'SELECT from_email, from_owner FROM emails WHERE id = ?',
+    [e.id],
+  )
   if (existing.length) {
-    await query('UPDATE emails SET is_read = ? WHERE id = ?', [e.is_read, e.id])
-    return false
+    const cur = existing[0]
+    // Si el remitente efectivo cambió (p. ej. detección de correo del
+    // formulario web), re-normalizamos borrando y re-insertando.
+    if (cur.from_email === e.from_email && Number(cur.from_owner) === e.from_owner) {
+      await query('UPDATE emails SET is_read = ? WHERE id = ?', [e.is_read, e.id])
+      return false
+    }
+    await query('DELETE FROM emails WHERE id = ?', [e.id])
+    await query('DELETE FROM interactions WHERE email_id = ?', [e.id])
   }
 
   await query(
@@ -127,10 +152,18 @@ export async function classifyPending(limit = 20) {
   return rows.length
 }
 
+// Cambia cuando cambian los campos que pedimos a Graph: fuerza un re-sync
+// completo para re-normalizar los correos existentes.
+const SELECT_SIG = 'v2-replyTo'
+
 // Sincronización incremental por delta query.
 // classifyLimit = 0 -> solo trae correos, la clasificación queda para el cron.
 export async function runSync({ classifyLimit = 30 } = {}) {
-  const deltaLink = await getState('delta_link')
+  let deltaLink = await getState('delta_link')
+  if ((await getState('select_sig')) !== SELECT_SIG) {
+    deltaLink = null
+    await setState('select_sig', SELECT_SIG)
+  }
   const { messages, deltaLink: newDelta } = await getInboxDelta(deltaLink)
 
   let inserted = 0

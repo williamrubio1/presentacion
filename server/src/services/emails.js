@@ -77,7 +77,7 @@ export async function sendReply(id, body) {
   if (!email) throw new Error('Correo no encontrado')
   if (!body || !body.trim()) throw new Error('El cuerpo de la respuesta está vacío')
 
-  await replyToMessage(id, body.trim())
+  await replyToMessage(id, body.trim(), email.from_email)
 
   await query(
     `UPDATE emails SET status = 'respondido', needs_reply = 0, replied_at = UTC_TIMESTAMP() WHERE id = ?`,

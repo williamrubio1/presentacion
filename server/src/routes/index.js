@@ -25,6 +25,7 @@ import {
   deleteFollowup,
 } from '../services/followups.js'
 import { listContacts, getContactDetail } from '../services/contacts.js'
+import { handleWebForm } from '../services/webForm.js'
 
 export const api = Router()
 
@@ -154,6 +155,14 @@ api.delete('/followups/:id', requireAuth, h(async (req, res) => {
   await deleteFollowup(req.params.id)
   res.json({ ok: true })
 }))
+
+// --- Formulario de contacto de la web (público) ---------------------
+api.post(
+  '/contacto',
+  h(async (req, res) => {
+    res.json(await handleWebForm(req.body || {}, req.ip))
+  }),
+)
 
 // --- Webhook de Microsoft Graph (sin auth, valida clientState) --------
 api.post('/graph/notifications', handleGraphNotification)
