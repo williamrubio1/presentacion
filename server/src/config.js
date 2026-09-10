@@ -37,7 +37,10 @@ export const config = {
     anthropicKey: process.env.ANTHROPIC_API_KEY || '',
     anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
     geminiKey: process.env.GEMINI_API_KEY || '',
-    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
+    // Pausa entre llamadas de clasificación (ms). Útil para respetar el
+    // límite por minuto de la capa gratuita (Gemini Flash-Lite ~15/min).
+    paceMs: Number(process.env.AI_PACE_MS || 0),
     openaiKey: process.env.OPENAI_API_KEY || '',
     openaiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     azureEndpoint: process.env.AZURE_OPENAI_ENDPOINT || '',

@@ -14,14 +14,23 @@ function stripFences(s) {
   return s.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 }
 
-async function post(url, headers, body) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function post(url, headers, body, attempt = 0) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   })
   const text = await res.text()
-  if (!res.ok) throw new Error(`IA ${res.status}: ${text.slice(0, 300)}`)
+  if (!res.ok) {
+    // 429 / 5xx suelen ser transitorios: reintenta con espera creciente.
+    if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+      await sleep(1500 * (attempt + 1))
+      return post(url, headers, body, attempt + 1)
+    }
+    throw new Error(`IA ${res.status}: ${text.slice(0, 300)}`)
+  }
   return JSON.parse(text)
 }
 

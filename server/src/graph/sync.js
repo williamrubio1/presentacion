@@ -2,6 +2,9 @@ import { query, getState, setState } from '../db.js'
 import { config } from '../config.js'
 import { getInboxDelta, getMessage } from './client.js'
 import { classifyEmail } from '../ai/classify.js'
+import { aiEnabled } from '../ai/llm.js'
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function toMySQLDate(iso) {
   return new Date(iso).toISOString().slice(0, 19).replace('T', ' ')
@@ -86,14 +89,22 @@ export async function classifyPending(limit = 20) {
       ORDER BY received_at DESC
       LIMIT ${Number(limit)}`,
   )
-  for (const row of rows) {
+  for (const [i, row] of rows.entries()) {
+    if (i > 0 && aiEnabled && config.ai.paceMs) await sleep(config.ai.paceMs)
     const r = await classifyEmail(row)
+    // Si la IA falló y cayó a reglas, no marcamos enriched_at: se reintenta luego.
+    const mark = r.aiFailed ? 'enriched_at' : 'UTC_TIMESTAMP()'
     await query(
       `UPDATE emails SET category = ?, priority = ?, sentiment = ?, needs_reply = ?,
-              ai_summary = ?, ai_draft = ?, enriched_at = UTC_TIMESTAMP()
+              ai_summary = ?, ai_draft = ?, enriched_at = ${mark}
        WHERE id = ?`,
       [r.category, r.priority, r.sentiment, r.needsReply ? 1 : 0, r.summary, r.draft, row.id],
     )
+    // Cuota agotada: no tiene sentido seguir golpeando la API.
+    if (r.rateLimited) {
+      console.warn('classifyPending: límite de la IA alcanzado, corto aquí')
+      break
+    }
   }
   return rows.length
 }
