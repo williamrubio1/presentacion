@@ -1,122 +1,131 @@
 # Fase 4 — Despliegue en Hostinger
 
-Todo bajo el mismo dominio (mismo origen → sin CORS):
+**Un solo deploy** (preset Express) sirve el frontend y la API desde
+`presentacion.soluctiasas.com`. Mismo origen → sin CORS, sin subdominio.
 
 ```
-presentacion.soluctiasas.com/         → public_html/  (dist del frontend)
-presentacion.soluctiasas.com/api/...  → app Node.js (carpeta server/, vía Passenger)
+npm install  →  npm run build (genera dist/)  →  npm start
+                                                  └─ Express sirve dist/  +  /api/*
 ```
 
 ---
 
-## Paso 1 — Base de datos MySQL
+## 1. Base de datos MySQL
 
 Ya creada:
-- BD: `u154452028_presentacion`
-- Usuario: `u154452028_user`
-- Host: `localhost`
+- BD: `u154452028_presentacion` · Usuario: `u154452028_user` · Host: `localhost`
 
 ---
 
-## Paso 2 — Subir el backend por SSH
+## 2. Configurar el deploy de GitHub
 
-```bash
-ssh -p 65002 u154452028@185.239.210.168
-cd ~
-git clone https://github.com/williamrubio1/presentacion.git
-```
-
-Queda en `~/presentacion`. Actualizaciones futuras: `cd ~/presentacion && git pull`
-y **reiniciar** la app en hPanel.
-
----
-
-## Paso 3 — Crear la app Node.js
-
-hPanel → **Avanzado → Node.js → Crear aplicación**:
+hPanel → deploy de GitHub del sitio `presentacion.soluctiasas.com`:
 
 | Campo | Valor |
 |---|---|
-| Versión de Node.js | 22 |
-| Modo | Production |
-| Raíz de la aplicación | `presentacion/server` |
-| URL de la aplicación | `presentacion.soluctiasas.com/api` |
-| Archivo de inicio | `src/index.js` |
+| Preajuste del marco | **Express** |
+| Rama | `main` |
+| Versión del nodo | 22.x |
+| Directorio raíz | `.` (o vacío = raíz del repo) |
+| Comando de compilación | `npm run build` |
+| Gestor de paquetes | `npm` |
+| Comando de inicio | `npm start` |
+
+*(Si pide "Directorio de salida" en vez de comando de inicio, es porque quedó en
+preset Vite — cámbialo a Express primero.)*
 
 ### Variables de entorno
 
-En la misma pantalla, agrégalas de `server/.env.production.example`. Completa:
-`MYSQL_PASSWORD`, `PANEL_PASSWORD`, `MS_CLIENT_SECRET`, `GEMINI_API_KEY`.
+En la sección **Variables de entorno** del deploy, agrega (rellena
+`MYSQL_PASSWORD`, `PANEL_PASSWORD`, `MS_CLIENT_SECRET`, `GEMINI_API_KEY`):
 
-### Instalar y preparar
-
-Botón **"Ejecutar NPM Install"**. Luego, por SSH, activa el entorno de la app
-(hPanel muestra la línea `source ~/nodevenv/presentacion-server/22/bin/activate`
-o similar) y:
-
-```bash
-cd ~/presentacion/server
-npm run migrate      # crea las tablas
-node jobs/sync.js    # trae y clasifica el histórico del buzón
-node jobs/renew.js   # crea la suscripción del webhook (tiempo real)
+```
+PORT=3000
+APP_ORIGIN=https://presentacion.soluctiasas.com,https://www.presentacion.soluctiasas.com
+COOKIE_DOMAIN=
+SESSION_SECRET=-t-sNPIWcvhzgciHHQ-K43uOfdF8hXzU
+CRON_SECRET=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni
+PANEL_PASSWORD=
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=u154452028_user
+MYSQL_PASSWORD=
+MYSQL_DATABASE=u154452028_presentacion
+MS_TENANT_ID=7aafda43-d81f-4b3a-b259-41bfa07f52db
+MS_CLIENT_ID=4984ac51-18ca-47ae-a3dc-1d38e29b71f1
+MS_CLIENT_SECRET=
+MAILBOX=contacto@soluctiasas.com
+GRAPH_WEBHOOK_URL=https://presentacion.soluctiasas.com/api/graph/notifications
+GRAPH_WEBHOOK_SECRET=F6LXLALyuBb9iKIGs9r6E3ttNd32qnkO
+AI_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-flash-lite-latest
+AI_PACE_MS=0
+RESPONSE_RATE_TARGET=85
 ```
 
-### Verificar
+Guarda y **vuelve a desplegar**.
+
+---
+
+## 3. Verificar el backend
 
 `https://presentacion.soluctiasas.com/api/health` → `{"ok":true,...}`
 
-Si da 404: el enrutado de `/api` a Passenger no quedó activo (ver "Problemas"
-abajo).
-
 ---
 
-## Paso 4 — Frontend
+## 4. Puesta en marcha (una URL, sin SSH)
 
-En tu equipo, raíz del repo:
-
-```bash
-echo "VITE_API_URL=https://presentacion.soluctiasas.com" > .env
-npm run build
+```
+https://presentacion.soluctiasas.com/api/cron/setup?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni
 ```
 
-Sube **el contenido de `dist/`** a `public_html/` (incluye `dist/.htaccess`,
-que ya excluye `/api` del fallback SPA). Reemplaza lo que haya.
+Crea las tablas + trae los ~50 correos + activa el webhook. Responde un JSON.
+La clasificación con IA se completa con el cron (paso 5).
 
 ---
 
-## Paso 5 — Cron jobs
+## 5. Cron
 
-hPanel → **Avanzado → Trabajos Cron** (`key` = `CRON_SECRET`):
+hPanel → **Trabajos Cron** si existe; si no, por **SSH** con `crontab -e`:
 
-| Frecuencia | Comando |
-|---|---|
-| `*/5 * * * *` | `curl -s "https://presentacion.soluctiasas.com/api/cron/sync?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
-| `0 */2 * * *` | `curl -s "https://presentacion.soluctiasas.com/api/cron/renew?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
-| `30 6 * * 1` | `curl -s "https://presentacion.soluctiasas.com/api/cron/summary?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"` |
+```
+*/5 * * * *   curl -s "https://presentacion.soluctiasas.com/api/cron/sync?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"
+0 */2 * * *   curl -s "https://presentacion.soluctiasas.com/api/cron/renew?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"
+30 6 * * 1    curl -s "https://presentacion.soluctiasas.com/api/cron/summary?key=Yi2Whft7Fa0yfZn_f9ws-Zo3q_tkk_Ni"
+```
 
----
-
-## Paso 6 — Verificar
-
-1. `https://presentacion.soluctiasas.com/dashboard` → pide contraseña (`PANEL_PASSWORD`).
-2. Entra → banner **"Conectado al buzón — datos reales"**.
-3. Envía un correo a `contacto@soluctiasas.com` → aparece en <1 min.
+Para clasificar el histórico ya (sin esperar al cron), llama varias veces:
+`https://presentacion.soluctiasas.com/api/cron/classify?key=...&n=50`
 
 ---
 
-## Problemas frecuentes
+## 6. Verificar el panel
 
-- **`/api/health` da 404 o el HTML del frontend**: Passenger no está capturando
-  `/api`. En la app Node.js de hPanel, confirma que la URL es
-  `presentacion.soluctiasas.com/api` (con el path). Si Hostinger no permite
-  montar la app en un subpath del sitio, usa un **subdominio**
-  `api.presentacion.soluctiasas.com`: cambia `GRAPH_WEBHOOK_URL` y
-  `VITE_API_URL` a ese host y reconstruye el frontend (el backend ya soporta
-  CORS entre subdominios).
-- **`/api/cron/renew` falla**: el webhook necesita HTTPS válido y que la ruta
-  pública coincida exacta con `GRAPH_WEBHOOK_URL`.
-- **Passenger duerme la app**: la despierta la siguiente petición (1-3 s). El
-  cron `sync` cada 5 min cubre los correos que lleguen con la app fría.
-- **Suscripción de Graph**: dura ~3 días; el cron `renew` la mantiene.
+1. `https://presentacion.soluctiasas.com/` → landing.
+2. `https://presentacion.soluctiasas.com/dashboard` → pide contraseña (`PANEL_PASSWORD`).
+3. Entra → **"Conectado al buzón — datos reales"** + los correos reales.
+4. Envía un correo a `contacto@soluctiasas.com` → aparece en <1 min.
+
+---
+
+## Notas
+
+- El frontend y el backend son el mismo proceso Node. Cada push redespliega
+  ambos (`npm install` + `npm run build` + `npm start`).
+- La suscripción de Graph dura ~3 días; el cron `renew` la mantiene.
+- El resumen semanal con IA se genera en segundo plano; el panel nunca se
+  queda esperando.
 - **Seguridad**: rota `MS_CLIENT_SECRET` (el de pruebas quedó en el chat) y
-  aplica la *Application Access Policy* en Exchange (comando en `server/README.md`).
+  aplica la *Application Access Policy* en Exchange (ver `server/README.md`).
+
+## Desarrollo local
+
+```bash
+# backend (necesita server/.env con MySQL y credenciales)
+npm run migrate && npm run sync && npm start        # sirve todo en :8787
+
+# o frontend con recarga en caliente, contra ese backend:
+echo "VITE_API_URL=http://localhost:8787" > .env
+npm run dev
+```

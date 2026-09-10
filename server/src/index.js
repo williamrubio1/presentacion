@@ -1,3 +1,6 @@
+import path from 'node:path'
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
@@ -28,7 +31,19 @@ app.use(cookieParser())
 
 app.use('/api', api)
 
-app.get('/', (req, res) => res.json({ service: 'presentacion-server', ok: true }))
+// Sirve el frontend compilado (dist/) desde el mismo origen que la API.
+const distDir = path.resolve(fileURLToPath(new URL('../../dist', import.meta.url)))
+if (fs.existsSync(path.join(distDir, 'index.html'))) {
+  app.use(express.static(distDir))
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next()
+    res.sendFile(path.join(distDir, 'index.html'))
+  })
+  console.log('Sirviendo frontend desde', distDir)
+} else {
+  app.get('/', (req, res) => res.json({ service: 'presentacion-server', ok: true }))
+  console.warn('dist/ no encontrado — solo API. Ejecuta "npm run build".')
+}
 
 // Manejo de errores centralizado
 // eslint-disable-next-line no-unused-vars
@@ -38,5 +53,5 @@ app.use((err, req, res, next) => {
 })
 
 app.listen(config.port, () => {
-  console.log(`API escuchando en :${config.port}`)
+  console.log(`Servidor en :${config.port}`)
 })

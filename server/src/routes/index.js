@@ -6,7 +6,7 @@ import { getContact, updateEmail, sendReply } from '../services/emails.js'
 import { runSync, classifyPending } from '../graph/sync.js'
 import { ensureSubscription } from '../graph/subscription.js'
 import { runMigration } from '../db-migrate.js'
-import { getOrBuildWeeklySummary } from '../services/summary.js'
+import { buildWeeklySummary } from '../services/summary.js'
 import { handleGraphNotification } from './graphNotifications.js'
 
 export const api = Router()
@@ -86,7 +86,7 @@ api.get('/cron/renew', requireCronKey, async (req, res, next) => {
 
 api.get('/cron/summary', requireCronKey, async (req, res, next) => {
   try {
-    res.json(await getOrBuildWeeklySummary())
+    res.json(await buildWeeklySummary())
   } catch (e) {
     next(e)
   }

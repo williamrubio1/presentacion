@@ -1,6 +1,6 @@
 import { query } from '../db.js'
 import { config } from '../config.js'
-import { getOrBuildWeeklySummary } from './summary.js'
+import { getWeeklySummary } from './summary.js'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -217,7 +217,7 @@ export async function assembleDashboard() {
     activity(),
     timelinesFor(emails),
     alerts(),
-    getOrBuildWeeklySummary(),
+    getWeeklySummary(),
   ])
   return {
     metrics: m,

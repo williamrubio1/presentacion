@@ -1,9 +1,15 @@
-// Cliente del backend (server/). Sin VITE_API_URL, el panel funciona en modo
-// demostración con datos simulados (ver dashboardData.js).
+// Cliente del backend (server/).
+//
+//   VITE_API_URL sin definir  -> modo demostración (datos simulados)
+//   VITE_API_URL definida (aunque sea vacía) -> modo real
+//     - vacía  -> mismo origen, peticiones relativas a /api  (recomendado)
+//     - con URL -> ese host (desarrollo local: http://localhost:8787)
 
-const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || ''
+const raw = import.meta.env.VITE_API_URL
 
-export const isLive = Boolean(API_URL)
+export const isLive = raw !== undefined
+
+const API_URL = (raw ?? '').replace(/\/$/, '')
 
 async function req(path, { method = 'GET', body, signal } = {}) {
   const res = await fetch(`${API_URL}${path}`, {

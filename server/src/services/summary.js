@@ -65,24 +65,51 @@ async function llmSummary(stats) {
   }
 }
 
-// Devuelve el resumen de la semana; lo genera y cachea si no existe o es viejo.
-export async function getOrBuildWeeklySummary() {
-  const period = isoWeekKey()
-  const existing = await one('SELECT title, body, created_at FROM ai_summaries WHERE period = ?', [period])
-  const stale = existing && Date.now() - new Date(existing.created_at).getTime() > 12 * 3600 * 1000
+const TITLE = '📊 Resumen semanal generado por IA'
 
-  if (existing && !stale) {
-    return { title: existing.title, text: existing.body }
-  }
+let building = null // evita regeneraciones concurrentes
 
-  const stats = await weekStats()
-  const text = (await llmSummary(stats)) || templateSummary(stats)
-  const title = '📊 Resumen semanal generado por IA'
-
+async function storeSummary(period, text) {
   await query(
     `INSERT INTO ai_summaries (period, title, body) VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE title = VALUES(title), body = VALUES(body), created_at = UTC_TIMESTAMP()`,
-    [period, title, text],
+    [period, TITLE, text],
   )
-  return { title, text }
+}
+
+// RÁPIDO — para el panel. Nunca llama al LLM: devuelve el cache o una plantilla.
+// Si el cache está viejo, dispara la regeneración con IA en segundo plano.
+export async function getWeeklySummary() {
+  const period = isoWeekKey()
+  const existing = await one(
+    'SELECT body, created_at FROM ai_summaries WHERE period = ?',
+    [period],
+  )
+
+  if (existing) {
+    const stale = Date.now() - new Date(existing.created_at).getTime() > 12 * 3600 * 1000
+    if (stale) buildWeeklySummary().catch(() => {})
+    return { title: TITLE, text: existing.body }
+  }
+
+  // Sin cache: plantilla inmediata (sin IA) y regeneración en segundo plano.
+  const text = templateSummary(await weekStats())
+  await storeSummary(period, text)
+  buildWeeklySummary().catch(() => {})
+  return { title: TITLE, text }
+}
+
+// LENTO — para el cron. Genera con IA y cachea. Una sola a la vez.
+export async function buildWeeklySummary() {
+  if (building) return building
+  building = (async () => {
+    const period = isoWeekKey()
+    const stats = await weekStats()
+    const text = (await llmSummary(stats)) || templateSummary(stats)
+    await storeSummary(period, text)
+    return { title: TITLE, text }
+  })().finally(() => {
+    building = null
+  })
+  return building
 }

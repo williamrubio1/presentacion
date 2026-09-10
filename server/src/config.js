@@ -1,4 +1,11 @@
-import 'dotenv/config'
+import { config as loadEnv } from 'dotenv'
+import { fileURLToPath } from 'node:url'
+
+// Carga server/.env sin importar desde dónde se ejecute (npm start corre desde
+// la raíz del repo). En Hostinger las variables van en el panel del deploy y
+// dotenv no las pisa.
+loadEnv({ path: fileURLToPath(new URL('../.env', import.meta.url)) })
+loadEnv() // también .env de la carpeta actual, por si acaso
 
 function required(name) {
   const v = process.env[name]

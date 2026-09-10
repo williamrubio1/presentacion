@@ -35,40 +35,24 @@ Buzón M365 ──▶ Graph (webhook) ──▶ este backend ──▶ MySQL ─
 
 ## Puesta en marcha local
 
+Desde la **raíz del repo** (no hay `package.json` en `server/`):
+
 ```bash
-cd server
-cp .env.example .env      # completa los valores
+# crea server/.env con MySQL + credenciales de Graph + Gemini (ver .env.example)
 npm install
 npm run migrate           # crea las tablas
 npm run seed              # datos de ejemplo (opcional, para probar sin Graph)
-npm run dev               # http://localhost:8787
+npm start                 # sirve frontend + API en http://localhost:8787
 ```
 
-## Despliegue en Hostinger (hosting con Node.js)
+## Despliegue en Hostinger
 
-1. **Base de datos** — hPanel → *Bases de datos → MySQL* → crear base y usuario.
-   Anota host, nombre, usuario y contraseña.
-2. **App Node.js** — hPanel → *Avanzado → Node.js*:
-   - Versión de Node: 20 o superior.
-   - Carpeta de la aplicación: sube el contenido de `server/` (sin `node_modules`).
-   - Archivo de inicio: `src/index.js`.
-   - Variables de entorno: copia las de `.env.example` con tus valores reales.
-     Pon `APP_ORIGIN=https://presentacion.soluctiasas.com` y
-     `COOKIE_DOMAIN=presentacion.soluctiasas.com`.
-   - Asigna la app a un subdominio, p. ej. `api.presentacion.soluctiasas.com`.
-3. En la consola de la app: `npm install` y luego `npm run migrate`.
-4. **Cron jobs** — hPanel → *Avanzado → Cron Jobs* (ajusta la ruta a tu carpeta):
-   ```
-   */5 * * * *   cd ~/domains/api.presentacion.soluctiasas.com/app && node jobs/sync.js
-   0 */2 * * *   cd ~/domains/api.presentacion.soluctiasas.com/app && node jobs/renew.js
-   0 7 * * 1     cd ~/domains/api.presentacion.soluctiasas.com/app && node jobs/summary.js
-   ```
-   (o usa `curl` contra `/api/cron/*?key=$CRON_SECRET`).
-5. **Frontend** — en el proyecto raíz, crea `.env` con
-   `VITE_API_URL=https://api.presentacion.soluctiasas.com`, `npm run build`,
-   sube `dist/` a `public_html`.
-6. **Primera carga de datos**: `node jobs/renew.js` (crea el webhook) y
-   `node jobs/sync.js` (trae el histórico y lo clasifica).
+El backend y el frontend se despliegan juntos con el preset **Express** del
+deploy de GitHub. Guía completa: [`../docs/despliegue-hostinger.md`](../docs/despliegue-hostinger.md).
+
+Resumen: build `npm run build`, inicio `npm start`, variables de entorno en el
+panel del deploy, y una llamada a `/api/cron/setup?key=...` para crear tablas +
+traer el buzón + activar el webhook.
 
 ## Registro de app en Entra ID (Microsoft)
 
