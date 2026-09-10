@@ -14,6 +14,20 @@ buzón de Soluctia SAS.
 El panel funciona en **modo demostración** con datos simulados si no hay
 `VITE_API_URL`. Con backend, pide login y muestra el buzón real.
 
+### Ver el buzón real en local
+
+```bash
+# 1. Backend (ver server/README.md para el .env con las credenciales)
+cd server && npm install && npm run migrate && node jobs/sync.js && npm start
+
+# 2. Frontend, en otra terminal
+echo "VITE_API_URL=http://localhost:8787" > .env
+npm run dev            # http://localhost:5173/dashboard  (contraseña: PANEL_PASSWORD)
+```
+
+El sitio **desplegado** en Hostinger seguirá en modo demo hasta que se despliegue
+el backend (Fase 4) y se reconstruya `dist/` con `VITE_API_URL` apuntando a él.
+
 ## Frontend
 
 ```bash

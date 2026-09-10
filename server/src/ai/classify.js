@@ -69,11 +69,12 @@ const oneOf = (value, allowed, fallback) => {
 // Enriquece un correo. Nunca lanza: si falla la IA, cae a reglas.
 export async function classifyEmail(email) {
   const ruleCat = ruleCategory(email)
+  const cat = ruleCat || 'Informativo'
   const base = {
-    category: ruleCat || 'Informativo',
-    priority: ruleCat === 'Reclamo' ? 'alta' : 'media',
+    category: cat,
+    priority: cat === 'Reclamo' ? 'alta' : 'media',
     sentiment: 'neutral',
-    needsReply: ruleCat !== 'Informativo',
+    needsReply: cat !== 'Informativo',
     summary: (email.preview || '').slice(0, 200),
     draft: '',
   }

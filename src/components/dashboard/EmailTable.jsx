@@ -31,21 +31,23 @@ export default function EmailTable({ emails = [], selectedId, onOpen }) {
                     isSel ? 'bg-[#4361ee]/10' : ''
                   } ${mail.estado === 'Urgente' ? 'blink-urgent' : ''}`}
                 >
-                  <td className="whitespace-nowrap px-5 py-3 text-slate-400">
+                  <td className="whitespace-nowrap px-5 py-3 align-top text-slate-400">
                     {mail.hora}
                   </td>
-                  <td className="whitespace-nowrap px-5 py-3 font-medium text-white">
+                  <td className="max-w-[10rem] truncate px-5 py-3 align-top font-medium text-white">
                     {mail.remitente}
                   </td>
-                  <td className="px-5 py-3 text-slate-300">{mail.asunto}</td>
-                  <td className="px-5 py-3">
+                  <td className="max-w-[18rem] truncate px-5 py-3 align-top text-slate-300">
+                    {mail.asunto}
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-3 align-top">
                     <span
                       className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${categoryStyles[mail.categoria] ?? fallbackBadge}`}
                     >
                       {mail.categoria}
                     </span>
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="whitespace-nowrap px-5 py-3 align-top">
                     <span
                       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[mail.estado] ?? statusStyles.Pendiente}`}
                     >
